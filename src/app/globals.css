@@ -1,0 +1,174 @@
+@import "tailwindcss";
+
+:root {
+  --background: #f7f1e8;
+  --foreground: #2d241f;
+  --surface: #fbf7f2;
+  --surface-strong: #fffdf8;
+  --line: rgba(71, 50, 39, 0.14);
+  --muted: #6c5b50;
+  --accent: #b86d52;
+  --accent-strong: #8f523d;
+  --sage: #72816d;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: "SUIT", "Wanted Sans", "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Segoe UI", sans-serif;
+  --font-mono: "SF Mono", "Menlo", monospace;
+  --font-display: var(--font-reading);
+  --font-reading: "Noto Serif KR", "Nanum Myeongjo", "AppleMyungjo", "Batang", "Georgia", serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  background-image:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.65), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(247, 241, 232, 0.96));
+}
+
+a,
+button,
+input,
+textarea {
+  transition:
+    background-color 180ms ease,
+    color 180ms ease,
+    border-color 180ms ease,
+    opacity 180ms ease,
+    transform 180ms ease,
+    box-shadow 180ms ease;
+}
+
+::selection {
+  background: rgba(184, 109, 82, 0.18);
+}
+
+.paper-panel {
+  background: color-mix(in srgb, var(--surface) 92%, white 8%);
+  border: 1px solid var(--line);
+  box-shadow: 0 18px 40px rgba(93, 67, 52, 0.06);
+}
+
+.eyebrow {
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+ }
+
+.display {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+}
+
+:lang(ko) body {
+  word-break: keep-all;
+}
+
+:lang(ko) .display {
+  font-family: var(--font-reading);
+  letter-spacing: -0.055em;
+}
+
+:lang(ko) .eyebrow {
+  letter-spacing: 0.08em;
+}
+
+.reading-text {
+  font-family: var(--font-reading);
+  letter-spacing: -0.012em;
+}
+
+:lang(ko) .reading-text {
+  letter-spacing: -0.025em;
+  line-height: 1.9;
+}
+
+.note-preview {
+  display: -webkit-box;
+  max-height: calc(1em * 1.9 * 4);
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+.note-preview-expanded {
+  display: block;
+  max-height: none;
+  -webkit-line-clamp: unset;
+}
+
+.text-balance {
+  text-wrap: balance;
+}
+
+.card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.feed-enter {
+  animation: feedEnter 420ms ease;
+}
+
+@keyframes feedEnter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.soft-rise {
+  animation: softRise 520ms ease;
+}
+
+.shake {
+  animation: shake 220ms ease;
+}
+
+@keyframes softRise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  25% {
+    transform: translateX(-3px);
+  }
+
+  75% {
+    transform: translateX(3px);
+  }
+}

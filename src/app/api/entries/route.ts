@@ -1,0 +1,100 @@
+import { NextRequest } from "next/server";
+import {
+  createEntry,
+  listEntriesByIds,
+  listLatestEntries,
+  listProfileEntries,
+} from "@/server/entries/repository";
+import { getAuthProfile } from "@/server/auth/session";
+import type { CreateEntryInput } from "@/server/entries/types";
+import { badRequest, ok, serviceUnavailable } from "@/server/http/responses";
+
+export async function GET(request: NextRequest) {
+  try {
+    const actorKey = request.nextUrl.searchParams.get("actorKey") ?? undefined;
+    const mine = request.nextUrl.searchParams.get("mine") === "1";
+    const ids = request.nextUrl.searchParams
+      .get("ids")
+      ?.split(",")
+      .map((id) => id.trim())
+      .filter(Boolean);
+    const limit = Number(request.nextUrl.searchParams.get("limit") ?? 24);
+    const profile = await getAuthProfile();
+
+    if (mine) {
+      if (!profile) {
+        return ok({
+          ok: true,
+          entries: [],
+        });
+      }
+
+      const entries = await listProfileEntries(profile.id);
+
+      return ok({
+        ok: true,
+        entries,
+      });
+    }
+
+    const entries = ids
+      ? await listEntriesByIds({
+          ids,
+          actorKey,
+          profileId: profile?.id,
+        })
+      : await listLatestEntries({
+          actorKey,
+          profileId: profile?.id,
+          limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 48) : 24,
+        });
+
+    return ok({
+      ok: true,
+      entries,
+    });
+  } catch (error) {
+    return serviceUnavailable(error);
+  }
+}
+
+export async function POST(request: NextRequest) {
+  let input: CreateEntryInput;
+
+  try {
+    input = (await request.json()) as CreateEntryInput;
+  } catch {
+    return badRequest(["Request body must be valid JSON."]);
+  }
+
+  try {
+    const profile = await getAuthProfile();
+
+    if (input.owner.kind === "profile") {
+      if (!profile) {
+        return Response.json(
+          {
+            ok: false,
+            errors: ["Sign in before creating an archived note."],
+          },
+          { status: 401 },
+        );
+      }
+
+      input = {
+        ...input,
+        owner: {
+          kind: "profile",
+          profileId: profile.id,
+          authorName: input.owner.authorName,
+        },
+      };
+    }
+
+    const result = await createEntry(input);
+
+    return Response.json(result, { status: result.ok ? 201 : 400 });
+  } catch (error) {
+    return serviceUnavailable(error);
+  }
+}
