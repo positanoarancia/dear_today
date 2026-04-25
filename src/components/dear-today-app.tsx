@@ -486,7 +486,7 @@ function getPostTime(post: Post) {
 
 function sortFeedPosts(posts: Post[], sort: FeedSort, referenceTime: number) {
   if (sort === "latest" || referenceTime === 0) {
-    return posts;
+    return [...posts].sort((a, b) => getPostTime(b) - getPostTime(a));
   }
 
   const cutoff = referenceTime - 24 * 60 * 60 * 1000;
