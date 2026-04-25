@@ -27,6 +27,8 @@ export type Post = {
 };
 
 export const MAX_POST_LENGTH = 1000;
+export const MIN_AUTHOR_LENGTH = 2;
+export const MAX_AUTHOR_LENGTH = 20;
 
 export const gentlePrompts = [
   "What felt quietly kind today?",

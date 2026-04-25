@@ -120,6 +120,18 @@ textarea {
   background:
     linear-gradient(90deg, transparent, color-mix(in srgb, var(--background) 92%, transparent) 8%, color-mix(in srgb, var(--background) 92%, transparent) 92%, transparent),
     color-mix(in srgb, var(--background) 78%, transparent);
+  transition:
+    padding 200ms ease,
+    box-shadow 200ms ease,
+    background-color 200ms ease;
+}
+
+.app-header-compact {
+  box-shadow: 0 14px 30px rgba(93, 67, 52, 0.055);
+}
+
+:root[data-theme="evening"] .app-header-compact {
+  box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
 }
 
 .text-on-foreground {

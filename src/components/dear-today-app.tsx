@@ -4,7 +4,9 @@ import Link from "next/link";
 import { signIn as authSignIn, signOut as authSignOut } from "next-auth/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  MAX_AUTHOR_LENGTH,
   MAX_POST_LENGTH,
+  MIN_AUTHOR_LENGTH,
   defaultProfile,
   seedPosts,
   type Post,
@@ -208,7 +210,7 @@ const copy = {
       verifyFailed: "This note could not be changed. Use the password set when it was written.",
       databaseFailed: "We could not reach the database. Please try again.",
       accessFailed: "We could not start account access yet. Please try again.",
-      nicknameLength: "Choose a nickname between 2 and 40 characters.",
+      nicknameLength: "Choose a nickname between 2 and 20 characters.",
       nicknameUpdated: "Your posting nickname has been updated.",
       nicknameLimited: (date: string) =>
         `You can change your nickname again on ${date}.`,
@@ -393,7 +395,7 @@ const copy = {
       verifyFailed: "이 글을 변경할 수 없어요. 작성할 때 정한 비밀번호로 다시 시도해주세요.",
       databaseFailed: "데이터베이스에 연결하지 못했습니다. 다시 시도해주세요.",
       accessFailed: "계정 접근을 시작하지 못했습니다. 다시 시도해주세요.",
-      nicknameLength: "별명은 2자 이상 40자 이하로 입력해주세요.",
+      nicknameLength: "별명은 2자 이상 20자 이하로 입력해주세요.",
       nicknameUpdated: "작성 별명이 업데이트되었습니다.",
       nicknameLimited: (date: string) =>
         `별명은 ${date} 이후 다시 바꿀 수 있어요.`,
@@ -685,6 +687,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const [nicknameError, setNicknameError] = useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isHeaderCompact, setIsHeaderCompact] = useState(false);
   const [feedSort, setFeedSort] = useState<FeedSort>("latest");
   const [myPostsFilter, setMyPostsFilter] = useState<MyPostsFilter>("all");
   const [sortReferenceTime, setSortReferenceTime] = useState(0);
@@ -707,6 +710,19 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   useEffect(() => {
     postsRef.current = posts;
   }, [posts]);
+
+  useEffect(() => {
+    const updateHeaderMode = () => {
+      setIsHeaderCompact(window.scrollY > 24);
+    };
+
+    updateHeaderMode();
+    window.addEventListener("scroll", updateHeaderMode, { passive: true });
+
+    return () => {
+      window.removeEventListener("scroll", updateHeaderMode);
+    };
+  }, []);
 
   useEffect(() => {
     const hydrate = window.setTimeout(() => {
@@ -1176,7 +1192,9 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const canSubmit =
     form.body.trim().length >= 12 &&
     form.body.length <= MAX_POST_LENGTH &&
-    (profile.mode === "member" || form.author.trim().length >= 2) &&
+    (profile.mode === "member" ||
+      (form.author.trim().length >= MIN_AUTHOR_LENGTH &&
+        form.author.trim().length <= MAX_AUTHOR_LENGTH)) &&
     (profile.mode === "member" || form.password.trim().length >= 4);
 
   const toggleHeart = async (postId: string) => {
@@ -1522,7 +1540,10 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
     const nextName = rawName.trim().replace(/\s+/g, " ");
 
-    if (nextName.length < 2 || nextName.length > 40) {
+    if (
+      nextName.length < MIN_AUTHOR_LENGTH ||
+      nextName.length > MAX_AUTHOR_LENGTH
+    ) {
       if (!options?.silent) {
         showNicknameFeedback(c.messages.nicknameLength, true);
       }
@@ -1685,14 +1706,31 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
   return (
     <div className="min-h-screen pb-8 text-[var(--foreground)]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1280px] flex-col px-4 pb-10 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-6 md:pt-6 lg:px-8">
-        <header className="app-header soft-rise sticky top-0 z-30 -mx-4 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 md:top-2 md:py-4 lg:-mx-8 lg:px-8">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1280px] flex-col px-4 pb-10 pt-0 sm:px-6 lg:px-8">
+        <header
+          className={`app-header soft-rise sticky top-0 z-30 -mx-4 px-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 ${
+            isHeaderCompact
+              ? "app-header-compact pb-2 pt-[calc(env(safe-area-inset-top)+0.45rem)] md:pb-3 md:pt-3"
+              : "pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] md:pb-4 md:pt-4"
+          }`}
+        >
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             <div className="min-w-0">
-              <p className="eyebrow text-[10px] text-[var(--muted)] md:text-[11px]">
+              <p
+                className={`eyebrow overflow-hidden text-[10px] text-[var(--muted)] transition-all duration-200 md:text-[11px] ${
+                  isHeaderCompact
+                    ? "max-h-0 translate-y-[-4px] opacity-0"
+                    : "max-h-5 translate-y-0 opacity-100"
+                }`}
+              >
                 {c.common.brandEyebrow}
               </p>
-              <Link href="/" className="display block truncate text-2xl leading-none tracking-[0.02em] sm:text-3xl">
+              <Link
+                href="/"
+                className={`display block truncate leading-none tracking-[0.02em] transition-[font-size,color] duration-200 ${
+                  isHeaderCompact ? "text-xl sm:text-2xl" : "text-2xl sm:text-3xl"
+                }`}
+              >
                 Dear, Today
               </Link>
             </div>
@@ -1701,7 +1739,9 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
               <button
                 type="button"
                 onClick={openComposerFromHeader}
-                className="shrink-0 whitespace-nowrap rounded-full ink-fill px-4 py-2.5 text-sm font-medium  shadow-[0_12px_28px_rgba(45,36,31,0.12)] hover:translate-y-[-1px]"
+                className={`shrink-0 whitespace-nowrap rounded-full ink-fill text-sm font-medium shadow-[0_12px_28px_rgba(45,36,31,0.12)] hover:translate-y-[-1px] ${
+                  isHeaderCompact ? "px-3.5 py-2" : "px-4 py-2.5"
+                }`}
               >
                 {c.home.writeCta}
               </button>
@@ -1712,7 +1752,9 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     event.stopPropagation();
                     setIsProfileMenuOpen((current) => !current);
                   }}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-strong)] p-0 text-[var(--foreground)] shadow-[0_10px_24px_rgba(45,36,31,0.08)] ring-1 ring-[var(--line)]"
+                  className={`flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-strong)] p-0 text-[var(--foreground)] shadow-[0_10px_24px_rgba(45,36,31,0.08)] ring-1 ring-[var(--line)] ${
+                    isHeaderCompact ? "h-9 w-9" : "h-10 w-10"
+                  }`}
                   aria-label={c.profile.menuLabel}
                 >
                   {profile.mode === "member" && profile.avatarUrl ? (
@@ -1784,6 +1826,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                           <div className="mt-2 flex items-center gap-2">
                             <input
                               value={nicknameDraft}
+                              maxLength={MAX_AUTHOR_LENGTH}
                               onChange={(event) => {
                                 setNicknameDraft(event.target.value);
                                 setNicknameFeedback("");
@@ -1914,6 +1957,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                           {c.home.authorPlaceholder}
                           <input
                             value={form.author}
+                            maxLength={MAX_AUTHOR_LENGTH}
                             onChange={(event) =>
                               setForm((current) => ({
                                 ...current,
@@ -2091,9 +2135,16 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                           getFeedCardSizeClass(post.body)
                         } ${isOwnProfilePost ? "own-note-card" : ""}`}
                       >
-                        <div className="flex items-center justify-between gap-3 text-sm text-[var(--muted)]">
-                          <span>{post.author}</span>
-                          <span>{formatRelative(post.createdAt, locale)}</span>
+                        <div className="flex min-w-0 items-start justify-between gap-3 text-sm text-[var(--muted)]">
+                          <span
+                            className="min-w-0 flex-1 truncate"
+                            title={post.author}
+                          >
+                            {post.author}
+                          </span>
+                          <span className="shrink-0 whitespace-nowrap text-right">
+                            {formatRelative(post.createdAt, locale)}
+                          </span>
                         </div>
                         <div
                           ref={(element) => {
@@ -2229,12 +2280,17 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       key={post.id}
                       className="paper-panel rounded-[22px] p-5"
                     >
-                      <div className="flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm text-[var(--muted)]">{post.author}</p>
+                      <div className="flex min-w-0 items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <p
+                              className="min-w-0 truncate text-sm text-[var(--muted)]"
+                              title={post.author}
+                            >
+                              {post.author}
+                            </p>
                             {(post.visibility ?? "public") === "hidden" ? (
-                              <span className="rounded-full bg-[rgba(114,129,109,0.14)] px-2 py-1 text-[11px] text-[var(--sage)]">
+                              <span className="shrink-0 rounded-full bg-[rgba(114,129,109,0.14)] px-2 py-1 text-[11px] text-[var(--sage)]">
                                 {c.myPosts.privateBadge}
                               </span>
                             ) : null}
@@ -2361,6 +2417,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     <input
                       aria-label="Author name"
                       value={form.author}
+                      maxLength={MAX_AUTHOR_LENGTH}
                       onChange={(event) =>
                         setForm((current) => ({
                           ...current,

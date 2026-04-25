@@ -1,9 +1,11 @@
 import { MAX_POST_LENGTH } from "@/lib/dear-today-data";
+export {
+  MAX_AUTHOR_LENGTH,
+  MIN_AUTHOR_LENGTH,
+} from "@/lib/dear-today-data";
 
 export const MIN_ENTRY_LENGTH = 12;
 export const MAX_ENTRY_LENGTH = MAX_POST_LENGTH;
-export const MIN_AUTHOR_LENGTH = 2;
-export const MAX_AUTHOR_LENGTH = 40;
 
 export type EntryVisibility = "public" | "hidden";
 
