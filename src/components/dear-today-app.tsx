@@ -29,6 +29,11 @@ type FeedSort = "latest" | "today";
 type MyPostsFilter = "all" | "public" | "hidden";
 type ThemeMode = "light" | "evening";
 
+const configuredNoticeText =
+  process.env.NEXT_PUBLIC_DEAR_TODAY_NOTICE_TEXT?.trim() ?? "";
+const configuredNoticeUrl =
+  process.env.NEXT_PUBLIC_DEAR_TODAY_NOTICE_URL?.trim() ?? "";
+
 const copy = {
   en: {
     nav: {
@@ -70,6 +75,8 @@ const copy = {
       privateNote: "Only me",
       themeLight: "Day",
       themeEvening: "Night",
+      notice: "A small note: Dear, Today is being shaped quietly, one gratitude at a time.",
+      continueEdit: "Continue to edit",
     },
     home: {
       eyebrow: "Public gratitude journal",
@@ -200,7 +207,7 @@ const copy = {
       editBody:
         "Guest notes require the password you used when writing. Logged-in posts can be updated directly.",
       deleteBody:
-        "This action is permanent in the prototype. Guest notes require password verification first.",
+        "Deleted notes cannot be restored. Guest notes require password verification first.",
       passwordPlaceholder: "Password for this note",
     },
     messages: {
@@ -257,6 +264,8 @@ const copy = {
       privateNote: "나만 보기",
       themeLight: "낮",
       themeEvening: "밤",
+      notice: "작은 공지: Dear, Today는 감사 한 줄씩 천천히 다듬어가는 중입니다.",
+      continueEdit: "수정하기",
     },
     home: {
       eyebrow: "공개 감사 저널",
@@ -385,7 +394,7 @@ const copy = {
       editBody:
         "게스트 글은 작성할 때 사용한 비밀번호가 필요합니다. 로그인 글은 바로 수정할 수 있습니다.",
       deleteBody:
-        "프로토타입에서는 이 작업을 되돌릴 수 없습니다. 게스트 글은 먼저 비밀번호를 확인합니다.",
+        "삭제한 글은 되돌릴 수 없습니다. 게스트 글은 먼저 비밀번호를 확인합니다.",
       passwordPlaceholder: "이 글의 비밀번호",
     },
     messages: {
@@ -675,6 +684,8 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const [editingDraft, setEditingDraft] = useState("");
   const [editingVisibility, setEditingVisibility] =
     useState<FormState["visibility"]>("public");
+  const [isEditingUnlocked, setIsEditingUnlocked] = useState(false);
+  const [isUnlockingEdit, setIsUnlockingEdit] = useState(false);
   const [verification, setVerification] = useState("");
   const [verificationError, setVerificationError] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
@@ -803,11 +814,9 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     const closeMenu = () => setIsProfileMenuOpen(false);
 
     window.addEventListener("click", closeMenu);
-    window.addEventListener("scroll", closeMenu, true);
 
     return () => {
       window.removeEventListener("click", closeMenu);
-      window.removeEventListener("scroll", closeMenu, true);
     };
   }, [isProfileMenuOpen]);
 
@@ -1344,6 +1353,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     setActionMenuId(null);
     setEditingDraft(post.body);
     setEditingVisibility(post.visibility ?? "public");
+    setIsEditingUnlocked(!requiresGuestVerification(post));
     setVerification("");
     setVerificationError(false);
   };
@@ -1365,6 +1375,67 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     }, 2600);
   };
 
+  const unlockEdit = async () => {
+    if (!editingId || isUnlockingEdit) {
+      return;
+    }
+
+    const post = posts.find((item) => item.id === editingId);
+    if (!post) {
+      return;
+    }
+
+    if (!requiresGuestVerification(post)) {
+      setIsEditingUnlocked(true);
+      setSuccessMessage("");
+      return;
+    }
+
+    if (verification.trim().length < 4) {
+      showVerificationError(c.messages.guestPasswordFirst);
+      return;
+    }
+
+    if (post.guestPassword && verification.trim() !== post.guestPassword) {
+      showVerificationError(c.messages.passwordMismatch);
+      return;
+    }
+
+    if (isDatabaseEntryId(editingId)) {
+      setIsUnlockingEdit(true);
+
+      try {
+        const response = await fetch(`/api/entries/${editingId}`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            actor: {
+              kind: "guest",
+              password: verification,
+            },
+          }),
+        });
+
+        if (!response.ok) {
+          showVerificationError(c.messages.passwordMismatch);
+          return;
+        }
+      } catch {
+        setSuccessMessage(c.messages.databaseFailed);
+        setTimeout(() => setSuccessMessage(""), 2600);
+        return;
+      } finally {
+        setIsUnlockingEdit(false);
+      }
+    }
+
+    setIsEditingUnlocked(true);
+    setSuccessMessage("");
+    setVerificationError(false);
+  };
+
   const saveEdit = async () => {
     if (!editingId || editingDraft.trim().length < 12) {
       return;
@@ -1381,6 +1452,11 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     }
 
     const needsPassword = requiresGuestVerification(post);
+    if (needsPassword && !isEditingUnlocked) {
+      showVerificationError(c.messages.guestPasswordFirst);
+      return;
+    }
+
     const isProfileDatabaseOwner =
       profile.mode === "member" &&
       profileOwnedIds.includes(post.id) &&
@@ -1447,6 +1523,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     );
     setEditingId(null);
     setEditingDraft("");
+    setIsEditingUnlocked(false);
     setVerification("");
   };
 
@@ -1703,6 +1780,11 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     profile.mode === "member" &&
     editingPost !== null &&
     profileOwnedIds.includes(editingPost.id);
+  const editingNeedsPassword =
+    editingPost !== null && requiresGuestVerification(editingPost);
+  const shouldShowEditPasswordFirst =
+    editingId !== null && editingNeedsPassword && !isEditingUnlocked;
+  const operatorNoticeText = configuredNoticeText || c.common.notice;
 
   return (
     <div className="min-h-screen pb-8 text-[var(--foreground)]">
@@ -1921,6 +2003,25 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
             </div>
           </div>
         </header>
+
+        {operatorNoticeText ? (
+          <div className="notice-strip -mx-4 px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+            {configuredNoticeUrl ? (
+              <a
+                href={configuredNoticeUrl}
+                className="block truncate text-xs text-[var(--muted)] hover:text-[var(--accent-strong)]"
+                target="_blank"
+                rel="noreferrer"
+              >
+                {operatorNoticeText}
+              </a>
+            ) : (
+              <p className="truncate text-xs text-[var(--muted)]">
+                {operatorNoticeText}
+              </p>
+            )}
+          </div>
+        ) : null}
 
         <main className="flex flex-1 flex-col gap-4 pt-2 md:pt-3">
           {isWrite ? (
@@ -2221,6 +2322,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                                     setDeleteCandidate(post.id);
                                     setActionMenuId(null);
                                     setVerification("");
+                                    setIsEditingUnlocked(false);
                                   }}
                                   className="block w-full rounded-xl px-3 py-2 text-left text-[var(--foreground)] hover:bg-[var(--surface)]"
                                 >
@@ -2331,6 +2433,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                                   setDeleteCandidate(post.id);
                                   setActionMenuId(null);
                                   setVerification("");
+                                  setIsEditingUnlocked(false);
                                 }}
                                 className="block w-full rounded-xl px-3 py-2 text-left text-[var(--foreground)] hover:bg-[var(--surface)]"
                               >
@@ -2504,7 +2607,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                 : c.modal.deleteBody}
             </p>
 
-            {editingId ? (
+            {editingId && !shouldShowEditPasswordFirst ? (
               <>
                 <textarea
                   value={editingDraft}
@@ -2530,15 +2633,19 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       </button>
                     ))}
                   </div>
-                ) : null}
+              ) : null}
               </>
             ) : null}
 
             {(() => {
               const candidateId = editingId ?? deleteCandidate;
               const candidate = posts.find((post) => post.id === candidateId);
+              const shouldAskPassword =
+                candidate &&
+                requiresGuestVerification(candidate) &&
+                !(editingId && isEditingUnlocked);
 
-              return candidate && requiresGuestVerification(candidate) ? (
+              return shouldAskPassword ? (
                 <label className="mt-4 block text-sm text-[var(--muted)]">
                   {c.common.guestPassword}
                   <input
@@ -2578,6 +2685,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                   setDeleteCandidate(null);
                   setActionMenuId(null);
                   setVerification("");
+                  setIsEditingUnlocked(false);
                   setVerificationError(false);
                 }}
                 className="rounded-full border border-[var(--line)] px-4 py-3 text-sm"
@@ -2587,12 +2695,17 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
               {editingId ? (
                 <button
                   type="button"
-                  onClick={saveEdit}
+                  onClick={shouldShowEditPasswordFirst ? unlockEdit : saveEdit}
+                  disabled={shouldShowEditPasswordFirst && isUnlockingEdit}
                   className={`rounded-full ink-fill px-4 py-3 text-sm  ${
                     verificationError ? "shake" : ""
-                  }`}
+                  } disabled:cursor-not-allowed disabled:opacity-45`}
                 >
-                  {c.common.saveChanges}
+                  {isUnlockingEdit
+                    ? c.account.saving
+                    : shouldShowEditPasswordFirst
+                    ? c.common.continueEdit
+                    : c.common.saveChanges}
                 </button>
               ) : (
                 <button

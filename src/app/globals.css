@@ -94,6 +94,12 @@ textarea {
     box-shadow 180ms ease;
 }
 
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
 ::selection {
   background: rgba(184, 109, 82, 0.18);
 }
@@ -132,6 +138,11 @@ textarea {
 
 :root[data-theme="evening"] .app-header-compact {
   box-shadow: 0 16px 34px rgba(0, 0, 0, 0.18);
+}
+
+.notice-strip {
+  background:
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface) 44%, transparent) 8%, color-mix(in srgb, var(--surface) 44%, transparent) 92%, transparent);
 }
 
 .text-on-foreground {

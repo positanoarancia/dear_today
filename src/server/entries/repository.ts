@@ -250,6 +250,52 @@ export async function updateEntry(input: UpdateEntryInput) {
   };
 }
 
+export async function verifyEntryOwnership(input: {
+  entryId: string;
+  actor: UpdateEntryInput["actor"];
+}) {
+  const db = getDb();
+  const [entry] = await db
+    .select({
+      id: gratitudeEntries.id,
+      ownerProfileId: gratitudeEntries.ownerProfileId,
+      passwordHash: guestOwnerships.passwordHash,
+    })
+    .from(gratitudeEntries)
+    .leftJoin(
+      guestOwnerships,
+      eq(guestOwnerships.id, gratitudeEntries.guestOwnershipId),
+    )
+    .where(eq(gratitudeEntries.id, input.entryId))
+    .limit(1);
+
+  if (!entry) {
+    return {
+      ok: false as const,
+      errors: ["Entry not found."],
+    };
+  }
+
+  const isProfileOwner =
+    input.actor.kind === "profile" &&
+    entry.ownerProfileId === input.actor.profileId;
+  const isGuestOwner =
+    input.actor.kind === "guest" &&
+    entry.passwordHash &&
+    verifyGuestPassword(input.actor.password, entry.passwordHash);
+
+  if (!isProfileOwner && !isGuestOwner) {
+    return {
+      ok: false as const,
+      errors: ["You do not have permission to manage this entry."],
+    };
+  }
+
+  return {
+    ok: true as const,
+  };
+}
+
 export async function removeEntry(input: {
   entryId: string;
   actor: UpdateEntryInput["actor"];
