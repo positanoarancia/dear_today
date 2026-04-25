@@ -1498,7 +1498,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
   return (
     <div className="min-h-screen pb-8 text-[var(--foreground)]">
-      <div className="mx-auto flex min-h-screen w-full max-w-[1280px] flex-col px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex min-h-screen w-full max-w-[1280px] flex-col px-4 pb-10 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-6 md:pt-6 lg:px-8">
         <header className="soft-rise sticky top-0 z-30 bg-[rgba(251,247,242,0.78)] py-3 backdrop-blur md:top-2 md:py-4">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             <div className="min-w-0">
