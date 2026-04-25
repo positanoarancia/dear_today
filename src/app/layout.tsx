@@ -39,6 +39,9 @@ export const metadata: Metadata = {
     description:
       "조용히 감사 한 줄을 남기고, 다른 사람들의 작은 고마움을 읽는 공개 감사일기.",
   },
+  verification: {
+    google: "f8VLh3Llc8IXBYWkldrHvplHkYIt17No7Sjnuc9TexI",
+  },
   robots: {
     index: true,
     follow: true,
