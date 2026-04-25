@@ -1578,7 +1578,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
               <button
                 type="button"
                 onClick={openComposerFromHeader}
-                className="shrink-0 whitespace-nowrap rounded-full bg-[var(--foreground)] px-4 py-2.5 text-sm font-medium text-[var(--on-foreground)] shadow-[0_12px_28px_rgba(45,36,31,0.12)] hover:translate-y-[-1px]"
+                className="shrink-0 whitespace-nowrap rounded-full ink-fill px-4 py-2.5 text-sm font-medium  shadow-[0_12px_28px_rgba(45,36,31,0.12)] hover:translate-y-[-1px]"
               >
                 {c.home.writeCta}
               </button>
@@ -1619,7 +1619,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                             href={item.href}
                             className={`rounded-full px-3 py-2 text-center text-xs ${
                               isActive
-                                ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
+                                ? "ink-fill"
                                 : "bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface-strong)]"
                             }`}
                           >
@@ -1630,7 +1630,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--foreground)] text-sm font-semibold text-[var(--on-foreground)]">
+                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full ink-fill text-sm font-semibold ">
                         {profile.mode === "member" && profile.avatarUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -1669,7 +1669,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                               type="button"
                               onClick={saveNickname}
                               disabled={isSavingNickname}
-                              className="shrink-0 rounded-full bg-[var(--foreground)] px-3 py-2 text-xs text-[var(--on-foreground)] disabled:cursor-not-allowed disabled:opacity-45"
+                              className="shrink-0 rounded-full ink-fill px-3 py-2 text-xs  disabled:cursor-not-allowed disabled:opacity-45"
                             >
                               {isSavingNickname ? c.account.saving : c.account.saveNickname}
                             </button>
@@ -1692,7 +1692,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       <button
                         type="button"
                         onClick={enableDemoLogin}
-                        className="mt-4 w-full rounded-full bg-[var(--foreground)] px-4 py-3 text-sm text-[var(--on-foreground)]"
+                        className="mt-4 w-full rounded-full ink-fill px-4 py-3 text-sm "
                       >
                         {c.common.continueGoogle}
                       </button>
@@ -1707,7 +1707,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                             onClick={() => setTheme(mode)}
                             className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${
                               theme === mode
-                                ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
+                                ? "ink-fill"
                                 : "text-[var(--muted)] hover:bg-[var(--surface-strong)]"
                             }`}
                           >
@@ -1793,7 +1793,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                               }
                               className={`rounded-full px-3 py-2 text-sm ${
                                 form.visibility === visibility
-                                  ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
+                                  ? "ink-fill"
                                   : "text-[var(--muted)] hover:bg-white"
                               }`}
                             >
@@ -1835,7 +1835,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       type="button"
                       onClick={handleSubmit}
                       disabled={!canSubmit || isSubmitting}
-                      className="rounded-full bg-[var(--foreground)] px-5 py-3 text-sm font-medium text-[var(--on-foreground)] disabled:cursor-not-allowed disabled:opacity-45"
+                      className="rounded-full ink-fill px-5 py-3 text-sm font-medium  disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       {isSubmitting ? "Adding..." : "Add to today's warmth"}
                     </button>
@@ -1896,7 +1896,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         onClick={() => setFeedSort(sort)}
                         className={`rounded-full px-4 py-2 text-xs ${
                           feedSort === sort
-                            ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
+                            ? "ink-fill"
                             : "bg-white/76 text-[var(--muted)] hover:bg-white"
                         }`}
                       >
@@ -2047,7 +2047,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         onClick={() => setMyPostsFilter(filter)}
                         className={`rounded-full px-3 py-2 text-xs ${
                           myPostsFilter === filter
-                            ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
+                            ? "ink-fill"
                             : "text-[var(--muted)] hover:bg-white"
                         }`}
                       >
@@ -2120,7 +2120,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     <button
                       type="button"
                       onClick={enableDemoLogin}
-                      className="rounded-full bg-[var(--foreground)] px-4 py-2 text-sm text-[var(--on-foreground)]"
+                      className="rounded-full ink-fill px-4 py-2 text-sm "
                     >
                       {c.common.continueGoogle}
                     </button>
@@ -2210,7 +2210,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         }
                         className={`rounded-full px-3 py-2 text-sm ${
                           form.visibility === visibility
-                            ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
+                            ? "ink-fill"
                             : "text-[var(--muted)] hover:bg-white"
                         }`}
                       >
@@ -2235,7 +2235,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                   type="button"
                   onClick={handleSubmit}
                   disabled={!canSubmit || isSubmitting}
-                  className="rounded-full bg-[var(--foreground)] px-4 py-2 text-sm text-[var(--on-foreground)] disabled:cursor-not-allowed disabled:opacity-45"
+                  className="rounded-full ink-fill px-4 py-2 text-sm  disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {isSubmitting ? c.home.adding : c.home.addNote}
                 </button>
@@ -2322,7 +2322,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                 <button
                   type="button"
                   onClick={saveEdit}
-                  className={`rounded-full bg-[var(--foreground)] px-4 py-3 text-sm text-[var(--on-foreground)] ${
+                  className={`rounded-full ink-fill px-4 py-3 text-sm  ${
                     verificationError ? "shake" : ""
                   }`}
                 >
@@ -2332,7 +2332,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                 <button
                   type="button"
                   onClick={confirmDelete}
-                  className={`rounded-full bg-[var(--foreground)] px-4 py-3 text-sm text-[var(--on-foreground)] ${
+                  className={`rounded-full ink-fill px-4 py-3 text-sm  ${
                     verificationError ? "shake" : ""
                   }`}
                 >
