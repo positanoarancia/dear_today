@@ -466,6 +466,14 @@ function persistStorage<T>(key: string, value: T) {
   window.localStorage.setItem(key, JSON.stringify(value));
 }
 
+function applyDocumentTheme(theme: ThemeMode) {
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.documentElement.dataset.theme = theme;
+}
+
 function getOrCreateDeviceId() {
   const existing = readStorage<string | null>(STORAGE_KEYS.deviceId, null);
 
@@ -710,6 +718,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       setOwnedIds(storedOwned);
       setLocale(nextLocale);
       setTheme(nextTheme);
+      applyDocumentTheme(nextTheme);
       setDeviceId(nextDeviceId);
       setHasHydrated(true);
       setSortReferenceTime(Date.now());
@@ -1543,6 +1552,15 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     setIsComposerOpen(true);
   };
 
+  const changeTheme = (nextTheme: ThemeMode) => {
+    setTheme(nextTheme);
+    applyDocumentTheme(nextTheme);
+
+    if (hasHydrated) {
+      persistStorage(STORAGE_KEYS.theme, nextTheme);
+    }
+  };
+
   const showPendingPosts = () => {
     if (pendingPosts.length === 0) {
       return;
@@ -1704,7 +1722,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                           <button
                             key={mode}
                             type="button"
-                            onClick={() => setTheme(mode)}
+                            onClick={() => changeTheme(mode)}
                             className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${
                               theme === mode
                                 ? "ink-fill"
