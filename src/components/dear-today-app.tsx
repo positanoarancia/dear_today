@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { signIn as authSignIn, signOut as authSignOut } from "next-auth/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   MAX_POST_LENGTH,
   defaultProfile,
@@ -91,6 +91,9 @@ const copy = {
       featuredMeta: "Words, warmth, and quiet appreciation.",
       sortLatest: "Latest",
       sortToday: "Today's hearts",
+      newNotes: (count: number) =>
+        count === 1 ? "1 new gratitude note" : `${count} new gratitude notes`,
+      showNewNotes: "Show them",
       sortHint: "Recent 24h first, then older notes by latest.",
       rhythmEyebrow: "Writing",
       rhythmTitle: "Leave one note when something comes to mind.",
@@ -179,13 +182,13 @@ const copy = {
         "Guest notes require the password you used when writing. Logged-in posts can be updated directly.",
       deleteBody:
         "This action is permanent in the prototype. Guest notes require password verification first.",
-      passwordPlaceholder: "Enter the original password",
+      passwordPlaceholder: "Password for this note",
     },
     messages: {
       posted: "Your gratitude is now part of today's warmth.",
-      guestPasswordFirst: "Enter the guest password for this note first.",
-      passwordMismatch: "That password did not match this guest note.",
-      verifyFailed: "We could not verify this note yet. Please try again.",
+      guestPasswordFirst: "Please enter the password you set when writing this note.",
+      passwordMismatch: "That password is not right. Check the password you used for this note.",
+      verifyFailed: "This note could not be changed. Use the password set when it was written.",
       databaseFailed: "We could not reach the database. Please try again.",
       accessFailed: "We could not start account access yet. Please try again.",
       nicknameLength: "Choose a nickname between 2 and 40 characters.",
@@ -257,6 +260,8 @@ const copy = {
       featuredMeta: "댓글 없이, 하트로만 전해요.",
       sortLatest: "최근",
       sortToday: "오늘 공감",
+      newNotes: (count: number) => `새 감사 ${count}개가 도착했어요`,
+      showNewNotes: "보기",
       sortHint: "최근 24시간 글을 먼저, 이후 글은 최신순으로 보여줘요.",
       rhythmEyebrow: "글쓰기",
       rhythmTitle: "쓰고 싶을 때만 열어두세요.",
@@ -344,13 +349,13 @@ const copy = {
         "게스트 글은 작성할 때 사용한 비밀번호가 필요합니다. 로그인 글은 바로 수정할 수 있습니다.",
       deleteBody:
         "프로토타입에서는 이 작업을 되돌릴 수 없습니다. 게스트 글은 먼저 비밀번호를 확인합니다.",
-      passwordPlaceholder: "처음 설정한 비밀번호 입력",
+      passwordPlaceholder: "이 글의 비밀번호",
     },
     messages: {
       posted: "당신의 감사가 오늘의 온기에 더해졌습니다.",
-      guestPasswordFirst: "먼저 이 글의 게스트 비밀번호를 입력해주세요.",
-      passwordMismatch: "이 게스트 글의 비밀번호와 일치하지 않습니다.",
-      verifyFailed: "아직 이 글을 확인하지 못했습니다. 다시 시도해주세요.",
+      guestPasswordFirst: "이 글을 쓸 때 정한 비밀번호를 입력해주세요.",
+      passwordMismatch: "비밀번호가 맞지 않아요. 이 글을 쓸 때 정한 비밀번호를 확인해주세요.",
+      verifyFailed: "이 글을 변경할 수 없어요. 작성할 때 정한 비밀번호로 다시 시도해주세요.",
       databaseFailed: "데이터베이스에 연결하지 못했습니다. 다시 시도해주세요.",
       accessFailed: "계정 접근을 시작하지 못했습니다. 다시 시도해주세요.",
       nicknameLength: "별명은 2자 이상 40자 이하로 입력해주세요.",
@@ -593,11 +598,18 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [feedSort, setFeedSort] = useState<FeedSort>("latest");
   const [sortReferenceTime, setSortReferenceTime] = useState(0);
+  const [pendingPosts, setPendingPosts] = useState<Post[]>([]);
+  const [isCheckingFeed, setIsCheckingFeed] = useState(false);
+  const postsRef = useRef(posts);
   const [, setApiStatus] = useState<
     "idle" | "loading" | "ready" | "fallback"
   >("idle");
   const c = copy[locale];
   const selectedPrompt = c.prompts[selectedPromptIndex];
+
+  useEffect(() => {
+    postsRef.current = posts;
+  }, [posts]);
 
   useEffect(() => {
     const hydrate = window.setTimeout(() => {
@@ -781,6 +793,63 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
     return () => controller.abort();
   }, [deviceId, hasHydrated, ownedIds]);
+
+  useEffect(() => {
+    if (!deviceId || !hasHydrated || !isHome) {
+      return;
+    }
+
+    let ignore = false;
+
+    async function checkForNewEntries() {
+      if (document.visibilityState !== "visible") {
+        return;
+      }
+
+      setIsCheckingFeed(true);
+
+      try {
+        const response = await fetch(
+          `/api/entries?actorKey=${encodeURIComponent(`device:${deviceId}`)}`,
+        );
+
+        if (!response.ok) {
+          return;
+        }
+
+        const payload = (await response.json()) as {
+          ok: boolean;
+          entries?: ApiEntry[];
+        };
+
+        if (!payload.ok || !payload.entries || ignore) {
+          return;
+        }
+
+        const knownIds = new Set(postsRef.current.map((post) => post.id));
+        const nextPendingPosts = payload.entries
+          .filter((entry) => !knownIds.has(entry.id))
+          .map(mapApiEntryToPost);
+
+        setPendingPosts((current) => mergePosts(current, nextPendingPosts));
+      } catch {
+        // Realtime awareness is intentionally quiet; polling failures should not interrupt reading.
+      } finally {
+        if (!ignore) {
+          setIsCheckingFeed(false);
+        }
+      }
+    }
+
+    const firstCheck = window.setTimeout(checkForNewEntries, 12000);
+    const interval = window.setInterval(checkForNewEntries, 30000);
+
+    return () => {
+      ignore = true;
+      window.clearTimeout(firstCheck);
+      window.clearInterval(interval);
+    };
+  }, [deviceId, hasHydrated, isHome]);
 
   useEffect(() => {
     if (!hasHydrated) {
@@ -1352,6 +1421,16 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     setIsComposerOpen(true);
   };
 
+  const showPendingPosts = () => {
+    if (pendingPosts.length === 0) {
+      return;
+    }
+
+    setPosts((current) => mergePosts(pendingPosts, current));
+    setPendingPosts([]);
+    setSortReferenceTime(Date.now());
+  };
+
   return (
     <div className="min-h-screen pb-8 text-[var(--foreground)]">
       <div className="mx-auto flex min-h-screen w-full max-w-[1280px] flex-col px-4 pb-10 pt-4 sm:px-6 lg:px-8">
@@ -1503,7 +1582,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
           </div>
         </header>
 
-        <main className="flex flex-1 flex-col gap-5 pt-3 md:pt-4">
+        <main className="flex flex-1 flex-col gap-4 pt-2 md:pt-3">
           {isWrite ? (
             <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
               <section className="paper-panel rounded-[32px] px-6 py-6 sm:px-7">
@@ -1636,7 +1715,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
             <section>
               <div className="flex flex-col gap-3" id="latest-feed">
                 <div className="flex justify-end">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 rounded-full bg-white/40 p-1">
                     {(["latest", "today"] as const).map((sort) => (
                       <button
                         key={sort}
@@ -1653,6 +1732,24 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     ))}
                   </div>
                 </div>
+
+                {pendingPosts.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={showPendingPosts}
+                    aria-live="polite"
+                    className="feed-refresh-banner flex items-center justify-between gap-3 rounded-[22px] px-4 py-3 text-left text-sm"
+                  >
+                    <span>{c.home.newNotes(pendingPosts.length)}</span>
+                    <span className="rounded-full bg-white/70 px-3 py-1 text-xs">
+                      {c.home.showNewNotes}
+                    </span>
+                  </button>
+                ) : isCheckingFeed ? (
+                  <p className="sr-only" aria-live="polite">
+                    Checking for new gratitude notes.
+                  </p>
+                ) : null}
 
                 <div className="grid card-grid gap-4">
                   {visiblePosts.map((post) => {
@@ -1964,6 +2061,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         ? "shake border-[var(--accent)] shadow-[0_0_0_4px_rgba(184,109,82,0.12)]"
                         : "border-[var(--line)]"
                     }`}
+                    aria-invalid={verificationError}
                     placeholder={c.modal.passwordPlaceholder}
                   />
                 </label>
@@ -1971,7 +2069,11 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
             })()}
 
             {successMessage && (editingId || deleteCandidate) ? (
-              <p className="mt-4 rounded-[18px] bg-[rgba(184,109,82,0.12)] px-3 py-2 text-sm text-[var(--accent-strong)]">
+              <p
+                className="mt-4 rounded-[18px] bg-[rgba(184,109,82,0.12)] px-3 py-2 text-sm text-[var(--accent-strong)]"
+                role={verificationError ? "alert" : "status"}
+                aria-live="polite"
+              >
                 {successMessage}
               </p>
             ) : null}
