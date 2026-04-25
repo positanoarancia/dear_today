@@ -5,6 +5,8 @@ export const MAX_ENTRY_LENGTH = MAX_POST_LENGTH;
 export const MIN_AUTHOR_LENGTH = 2;
 export const MAX_AUTHOR_LENGTH = 40;
 
+export type EntryVisibility = "public" | "hidden";
+
 export type EntryOwner =
   | {
       kind: "guest";
@@ -20,6 +22,7 @@ export type EntryOwner =
 export type CreateEntryInput = {
   body: string;
   owner: EntryOwner;
+  visibility?: EntryVisibility;
   locale?: string;
 };
 
@@ -44,6 +47,6 @@ export type EntrySummary = {
   heartCount: number;
   viewerHasHearted: boolean;
   createdAt: string;
+  visibility: EntryVisibility;
   canEdit: boolean;
 };
-

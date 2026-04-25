@@ -25,6 +25,7 @@ const POST_PREVIEW_LENGTH = 80;
 
 type Locale = "en" | "ko";
 type FeedSort = "latest" | "today";
+type MyPostsFilter = "all" | "public" | "hidden";
 
 const copy = {
   en: {
@@ -63,6 +64,8 @@ const copy = {
       deleteNote: "Delete note",
       quietHearts: "quiet hearts",
       signOut: "Sign out",
+      publicNote: "Public",
+      privateNote: "Only me",
     },
     home: {
       eyebrow: "Public gratitude journal",
@@ -85,6 +88,10 @@ const copy = {
       passwordPlaceholder: "Guest password for edits",
       addNote: "Add note",
       adding: "Adding...",
+      visibilityHelpMember:
+        "Public notes appear in the home feed. Only-me notes stay in My Posts.",
+      visibilityHelpGuest:
+        "Guest notes are public. Sign in when you want an only-me note.",
       featuredEyebrow: "Featured gratitude",
       featuredTitle: "A note carrying today's warmth",
       shareFeeling: "Share this feeling",
@@ -148,6 +155,10 @@ const copy = {
       guestTitle: "Keep writing freely as a guest.",
       guestBody:
         "Guest notes are public and can be managed from their feed card with the password you set. Sign in when you want a dedicated personal archive.",
+      filterAll: "All",
+      filterPublic: "Public",
+      filterPrivate: "Only me",
+      privateBadge: "Only me",
     },
     account: {
       eyebrow: "Account access",
@@ -232,6 +243,8 @@ const copy = {
       deleteNote: "글 삭제",
       quietHearts: "개의 조용한 하트",
       signOut: "로그아웃",
+      publicNote: "공개",
+      privateNote: "나만 보기",
     },
     home: {
       eyebrow: "공개 감사 저널",
@@ -254,6 +267,10 @@ const copy = {
       passwordPlaceholder: "수정·삭제용 비밀번호",
       addNote: "남기기",
       adding: "저장 중...",
+      visibilityHelpMember:
+        "공개 글은 홈 피드에 보이고, 나만 보기 글은 내 글에만 저장됩니다.",
+      visibilityHelpGuest:
+        "게스트 글은 공개로만 남길 수 있어요. 나만 보기 글은 로그인 후 사용할 수 있습니다.",
       featuredEyebrow: "오늘의 글",
       featuredTitle: "마음에 남은 감사",
       shareFeeling: "공유하기",
@@ -315,6 +332,10 @@ const copy = {
       guestTitle: "게스트로도 자유롭게 쓸 수 있어요.",
       guestBody:
         "게스트 글은 공개되며, 작성 시 설정한 비밀번호로 피드 카드에서 관리할 수 있습니다. 전용 보관함이 필요할 때 로그인하세요.",
+      filterAll: "전체",
+      filterPublic: "공개",
+      filterPrivate: "나만 보기",
+      privateBadge: "나만 보기",
     },
     account: {
       eyebrow: "계정",
@@ -369,6 +390,7 @@ type FormState = {
   body: string;
   author: string;
   password: string;
+  visibility: "public" | "hidden";
 };
 
 type ApiEntry = {
@@ -378,6 +400,7 @@ type ApiEntry = {
   heartCount: number;
   viewerHasHearted: boolean;
   createdAt: string;
+  visibility: "public" | "hidden";
   canEdit: boolean;
 };
 
@@ -397,6 +420,7 @@ const initialForm = {
   body: "",
   author: "",
   password: "",
+  visibility: "public" as const,
 };
 
 function readStorage<T>(key: string, fallback: T) {
@@ -464,6 +488,7 @@ function mapApiEntryToPost(entry: ApiEntry): Post {
     author: entry.authorName,
     createdAt: entry.createdAt,
     hearts: entry.heartCount,
+    visibility: entry.visibility,
   };
 }
 
@@ -597,6 +622,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [feedSort, setFeedSort] = useState<FeedSort>("latest");
+  const [myPostsFilter, setMyPostsFilter] = useState<MyPostsFilter>("all");
   const [sortReferenceTime, setSortReferenceTime] = useState(0);
   const [pendingPosts, setPendingPosts] = useState<Post[]>([]);
   const [isCheckingFeed, setIsCheckingFeed] = useState(false);
@@ -977,13 +1003,34 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   }, [hasHydrated, ownedIds]);
 
   const visiblePosts = useMemo(
-    () => sortFeedPosts(posts, feedSort, sortReferenceTime),
+    () =>
+      sortFeedPosts(
+        posts.filter((post) => (post.visibility ?? "public") === "public"),
+        feedSort,
+        sortReferenceTime,
+      ),
     [feedSort, posts, sortReferenceTime],
   );
   const canUsePersonalArchive = profile.mode === "member";
-  const archivedPosts = canUsePersonalArchive
-    ? posts.filter((post) => profileOwnedIds.includes(post.id))
-    : [];
+  const archivedPosts = useMemo(() => {
+    if (!canUsePersonalArchive) {
+      return [];
+    }
+
+    return sortFeedPosts(
+      posts.filter((post) => {
+        if (!profileOwnedIds.includes(post.id)) {
+          return false;
+        }
+
+        const visibility = post.visibility ?? "public";
+
+        return myPostsFilter === "all" || visibility === myPostsFilter;
+      }),
+      "latest",
+      sortReferenceTime,
+    );
+  }, [canUsePersonalArchive, myPostsFilter, posts, profileOwnedIds, sortReferenceTime]);
 
   const canSubmit =
     form.body.trim().length >= 12 &&
@@ -1070,6 +1117,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
         },
         body: JSON.stringify({
           body: form.body.trim(),
+          visibility: profile.mode === "member" ? form.visibility : "public",
           owner:
             profile.mode === "member"
               ? {
@@ -1107,6 +1155,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       body: form.body.trim(),
       createdAt: new Date().toISOString(),
       hearts: 0,
+      visibility: profile.mode === "member" ? form.visibility : "public",
       ownerId: profile.mode === "member" ? profile.id : createLocalId("guest"),
       guestPassword: profile.mode === "member" ? undefined : form.password,
     };
@@ -1125,6 +1174,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       body: "",
       author: profile.mode === "member" ? form.author.trim() : profile.name,
       password: "",
+      visibility: "public",
     });
     setLastCreatedId(newPost.id);
     setIsSubmitting(false);
@@ -1630,10 +1680,27 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     </label>
 
                     <label className="text-sm text-[var(--muted)]">
-                      {profile.mode === "member" ? "Posting mode" : "Guest password"}
+                      {profile.mode === "member" ? "Visibility" : "Guest password"}
                       {profile.mode === "member" ? (
-                        <div className="mt-2 rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--foreground)]">
-                          Signed in with Google
+                        <div className="mt-2 grid grid-cols-2 rounded-full bg-white/70 p-1">
+                          {(["public", "hidden"] as const).map((visibility) => (
+                            <button
+                              key={visibility}
+                              type="button"
+                              onClick={() =>
+                                setForm((current) => ({ ...current, visibility }))
+                              }
+                              className={`rounded-full px-3 py-2 text-sm ${
+                                form.visibility === visibility
+                                  ? "bg-[var(--foreground)] text-white"
+                                  : "text-[var(--muted)] hover:bg-white"
+                              }`}
+                            >
+                              {visibility === "public"
+                                ? c.common.publicNote
+                                : c.common.privateNote}
+                            </button>
+                          ))}
                         </div>
                       ) : (
                         <input
@@ -1651,6 +1718,11 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       )}
                     </label>
                   </div>
+                  <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                    {profile.mode === "member"
+                      ? c.home.visibilityHelpMember
+                      : c.home.visibilityHelpGuest}
+                  </p>
 
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-[var(--muted)]">
@@ -1866,6 +1938,26 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
               {canUsePersonalArchive ? (
                 <div className="mt-5 grid gap-3">
+                  <div className="flex w-fit items-center gap-2 rounded-full bg-white/50 p-1">
+                    {(["all", "public", "hidden"] as const).map((filter) => (
+                      <button
+                        key={filter}
+                        type="button"
+                        onClick={() => setMyPostsFilter(filter)}
+                        className={`rounded-full px-3 py-2 text-xs ${
+                          myPostsFilter === filter
+                            ? "bg-[var(--foreground)] text-white"
+                            : "text-[var(--muted)] hover:bg-white"
+                        }`}
+                      >
+                        {filter === "all"
+                          ? c.myPosts.filterAll
+                          : filter === "public"
+                            ? c.myPosts.filterPublic
+                            : c.myPosts.filterPrivate}
+                      </button>
+                    ))}
+                  </div>
                   {archivedPosts.length > 0 ? (
                     archivedPosts.map((post) => (
                     <article
@@ -1874,7 +1966,14 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                          <p className="text-sm text-[var(--muted)]">{post.author}</p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm text-[var(--muted)]">{post.author}</p>
+                            {(post.visibility ?? "public") === "hidden" ? (
+                              <span className="rounded-full bg-[rgba(114,129,109,0.14)] px-2 py-1 text-[11px] text-[var(--sage)]">
+                                {c.myPosts.privateBadge}
+                              </span>
+                            ) : null}
+                          </div>
                           <p className="mt-1 text-xs text-[var(--muted)]">
                             {formatRelative(post.createdAt, locale)}
                           </p>
@@ -1999,8 +2098,34 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     className="w-full rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
                     placeholder={c.home.passwordPlaceholder}
                   />
-                ) : null}
+                ) : (
+                  <div className="grid grid-cols-2 rounded-full bg-white/70 p-1">
+                    {(["public", "hidden"] as const).map((visibility) => (
+                      <button
+                        key={visibility}
+                        type="button"
+                        onClick={() =>
+                          setForm((current) => ({ ...current, visibility }))
+                        }
+                        className={`rounded-full px-3 py-2 text-sm ${
+                          form.visibility === visibility
+                            ? "bg-[var(--foreground)] text-white"
+                            : "text-[var(--muted)] hover:bg-white"
+                        }`}
+                      >
+                        {visibility === "public"
+                          ? c.common.publicNote
+                          : c.common.privateNote}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
+              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
+                {profile.mode === "member"
+                  ? c.home.visibilityHelpMember
+                  : c.home.visibilityHelpGuest}
+              </p>
               <div className="mt-3 flex items-center justify-between gap-3">
                 <span className="text-xs text-[var(--muted)]">
                   {form.body.length}/{MAX_POST_LENGTH}

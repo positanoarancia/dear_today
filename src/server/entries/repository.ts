@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
 import {
   entryReactions,
@@ -33,6 +33,7 @@ export async function listLatestEntries(options?: {
       body: gratitudeEntries.body,
       authorName: gratitudeEntries.authorName,
       ownerProfileId: gratitudeEntries.ownerProfileId,
+      visibility: gratitudeEntries.visibility,
       createdAt: gratitudeEntries.createdAt,
       heartCount: count(entryReactions.id),
       viewerHasHearted: heartedExpression,
@@ -51,6 +52,7 @@ export async function listLatestEntries(options?: {
     heartCount: row.heartCount,
     viewerHasHearted: row.viewerHasHearted,
     createdAt: row.createdAt.toISOString(),
+    visibility: row.visibility === "hidden" ? "hidden" : "public",
     canEdit: Boolean(profileId && row.ownerProfileId === profileId),
   }));
 }
@@ -77,6 +79,7 @@ export async function listEntriesByIds(options: {
       body: gratitudeEntries.body,
       authorName: gratitudeEntries.authorName,
       ownerProfileId: gratitudeEntries.ownerProfileId,
+      visibility: gratitudeEntries.visibility,
       createdAt: gratitudeEntries.createdAt,
       heartCount: count(entryReactions.id),
       viewerHasHearted: heartedExpression,
@@ -99,6 +102,7 @@ export async function listEntriesByIds(options: {
     heartCount: row.heartCount,
     viewerHasHearted: row.viewerHasHearted,
     createdAt: row.createdAt.toISOString(),
+    visibility: row.visibility === "hidden" ? "hidden" : "public",
     canEdit: Boolean(profileId && row.ownerProfileId === profileId),
   }));
 }
@@ -117,6 +121,10 @@ export async function createEntry(input: CreateEntryInput) {
   const body = normalizeEntryBody(input.body);
   const authorName = normalizeAuthorName(input.owner.authorName);
   const locale = normalizeLocale(input.locale);
+  const visibility =
+    input.owner.kind === "profile" && input.visibility === "hidden"
+      ? "hidden"
+      : "public";
 
   if (input.owner.kind === "guest") {
     const [guestOwnership] = await db
@@ -133,6 +141,7 @@ export async function createEntry(input: CreateEntryInput) {
         body,
         authorName,
         guestOwnershipId: guestOwnership.id,
+        visibility,
         locale,
       })
       .returning({ id: gratitudeEntries.id });
@@ -149,6 +158,7 @@ export async function createEntry(input: CreateEntryInput) {
       body,
       authorName,
       ownerProfileId: input.owner.profileId,
+      visibility,
       locale,
     })
     .returning({ id: gratitudeEntries.id });
@@ -280,6 +290,7 @@ export async function listProfileEntries(profileId: string) {
       id: gratitudeEntries.id,
       body: gratitudeEntries.body,
       authorName: gratitudeEntries.authorName,
+      visibility: gratitudeEntries.visibility,
       createdAt: gratitudeEntries.createdAt,
       heartCount: count(entryReactions.id),
     })
@@ -288,7 +299,7 @@ export async function listProfileEntries(profileId: string) {
     .where(
       and(
         eq(gratitudeEntries.ownerProfileId, profileId),
-        eq(gratitudeEntries.visibility, "public"),
+        ne(gratitudeEntries.visibility, "removed"),
       ),
     )
     .groupBy(gratitudeEntries.id)
@@ -301,6 +312,7 @@ export async function listProfileEntries(profileId: string) {
     heartCount: row.heartCount,
     viewerHasHearted: false,
     createdAt: row.createdAt.toISOString(),
+    visibility: row.visibility === "hidden" ? "hidden" : "public",
     canEdit: true,
   }));
 }

@@ -48,6 +48,17 @@ export function validateCreateEntry(input: CreateEntryInput): ValidationResult {
     errors.push("Guest password must be at least 4 characters.");
   }
 
+  if (
+    input.visibility &&
+    input.visibility !== "public" &&
+    input.visibility !== "hidden"
+  ) {
+    errors.push("Visibility must be public or hidden.");
+  }
+
+  if (input.owner.kind === "guest" && input.visibility === "hidden") {
+    errors.push("Guest notes cannot be hidden.");
+  }
+
   return errors.length > 0 ? { ok: false, errors } : { ok: true };
 }
-

@@ -19,6 +19,7 @@ export type Post = {
   author: string;
   createdAt: string;
   hearts: number;
+  visibility?: "public" | "hidden";
   ownerId?: string;
   guestPassword?: string;
 };
