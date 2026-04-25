@@ -1,11 +1,54 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
+import { getSiteUrl } from "./site-url";
 import "./globals.css";
 
+const siteUrl = getSiteUrl();
+
 export const metadata: Metadata = {
-  title: "Dear, Today",
+  metadataBase: siteUrl,
+  title: {
+    default: "Dear, Today",
+    template: "%s | Dear, Today",
+  },
   description:
-    "A quiet public gratitude journal for small notes, warm reading, and gentle appreciation.",
+    "조용히 감사 한 줄을 남기고, 다른 사람들의 작은 고마움을 읽는 공개 감사일기.",
+  applicationName: "Dear, Today",
+  alternates: {
+    canonical: "/",
+  },
+  keywords: [
+    "감사일기",
+    "감사 기록",
+    "gratitude journal",
+    "public gratitude journal",
+    "Dear Today",
+  ],
+  openGraph: {
+    title: "Dear, Today",
+    description:
+      "조용히 감사 한 줄을 남기고, 다른 사람들의 작은 고마움을 읽는 공개 감사일기.",
+    url: "/",
+    siteName: "Dear, Today",
+    locale: "ko_KR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Dear, Today",
+    description:
+      "조용히 감사 한 줄을 남기고, 다른 사람들의 작은 고마움을 읽는 공개 감사일기.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
 };
 
 export const viewport: Viewport = {

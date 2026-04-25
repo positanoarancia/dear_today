@@ -41,6 +41,7 @@ DATABASE_URL="postgres://..."
 AUTH_SECRET="..."
 AUTH_GOOGLE_ID="..."
 AUTH_GOOGLE_SECRET="..."
+NEXT_PUBLIC_SITE_URL="https://your-production-domain.com"
 ```
 
 For Google OAuth, add this local redirect URI:
@@ -63,6 +64,22 @@ npm run build
 npm run db:generate
 npm run db:migrate
 ```
+
+## SEO and Google Search Console
+
+Set `NEXT_PUBLIC_SITE_URL` to the canonical production domain before deploying.
+The app generates:
+
+- `/robots.txt`
+- `/sitemap.xml`
+- canonical, Open Graph, Twitter, and robots metadata for the home page
+
+For Google Search Console:
+
+1. Add the production domain as a URL-prefix property or domain property.
+2. Verify ownership with the DNS TXT record or Google-provided HTML file.
+3. Submit `https://your-production-domain.com/sitemap.xml`.
+4. Use URL Inspection for the home page and request indexing after deployment.
 
 ## Architecture Notes
 
