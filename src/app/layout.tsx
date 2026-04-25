@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { cookies } from "next/headers";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,13 +13,26 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-export default function RootLayout({
+function readInitialLocale(value: string | undefined) {
+  return value === "en" || value === "ko" ? value : "ko";
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const cookieStore = await cookies();
+  const initialLocale = readInitialLocale(
+    cookieStore.get("dear-today-locale")?.value,
+  );
+
   return (
-    <html lang="en" className="h-full antialiased" data-scroll-behavior="smooth">
+    <html
+      lang={initialLocale}
+      className="h-full antialiased"
+      data-scroll-behavior="smooth"
+    >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );

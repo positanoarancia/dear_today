@@ -1,5 +1,15 @@
 import { DearTodayApp } from "@/components/dear-today-app";
+import { cookies } from "next/headers";
 
-export default function MyPostsPage() {
-  return <DearTodayApp initialView="my-posts" />;
+function readInitialLocale(value: string | undefined) {
+  return value === "en" || value === "ko" ? value : "ko";
+}
+
+export default async function MyPostsPage() {
+  const cookieStore = await cookies();
+  const initialLocale = readInitialLocale(
+    cookieStore.get("dear-today-locale")?.value,
+  );
+
+  return <DearTodayApp initialView="my-posts" initialLocale={initialLocale} />;
 }

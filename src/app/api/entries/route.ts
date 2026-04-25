@@ -14,6 +14,10 @@ import {
   recordGuestEntryCreated,
 } from "@/server/moderation/repository";
 
+function defaultGuestName(locale?: string) {
+  return locale?.toLowerCase().startsWith("ko") ? "익명의 마음" : "Quiet guest";
+}
+
 export async function GET(request: NextRequest) {
   try {
     const actorKey = request.nextUrl.searchParams.get("actorKey") ?? undefined;
@@ -111,6 +115,14 @@ export async function POST(request: NextRequest) {
           kind: "profile",
           profileId: profile.id,
           authorName: input.owner.authorName,
+        },
+      };
+    } else if (input.owner.authorName.trim().length === 0) {
+      input = {
+        ...input,
+        owner: {
+          ...input.owner,
+          authorName: defaultGuestName(input.locale),
         },
       };
     }

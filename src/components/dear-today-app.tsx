@@ -30,6 +30,7 @@ type MyPostsFilter = "all" | "public" | "hidden";
 type ThemeMode = "light" | "evening";
 
 const INITIAL_NOTICE_DATE_KEY = "daily-notice-initial";
+const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 const configuredNoticeText =
   process.env.NEXT_PUBLIC_DEAR_TODAY_NOTICE_TEXT?.trim() ?? "";
@@ -225,7 +226,7 @@ const copy = {
       closeComposer: "Close writing",
       notePlaceholder: "One small gratitude per line.",
       noteHint: "Try one small gratitude per line. Three is enough.",
-      authorPlaceholder: "Posting nickname",
+      authorPlaceholder: "Name to show",
       passwordPlaceholder: "Guest password for edits",
       addNote: "Add note",
       adding: "Adding...",
@@ -419,7 +420,7 @@ const copy = {
       closeComposer: "글쓰기 닫기",
       notePlaceholder: "오늘 고마웠던 일을 한 줄씩 적어보세요.",
       noteHint: "한 줄에 하나씩 적어도 좋아요. 세 가지면 충분합니다.",
-      authorPlaceholder: "글에 표시될 이름",
+      authorPlaceholder: "이름을 적어주세요",
       passwordPlaceholder: "수정·삭제용 비밀번호",
       addNote: "남기기",
       adding: "저장 중...",
@@ -614,6 +615,16 @@ function persistStorage<T>(key: string, value: T) {
   }
 
   window.localStorage.setItem(key, JSON.stringify(value));
+}
+
+function persistLocalePreference(locale: Locale) {
+  persistStorage(STORAGE_KEYS.locale, locale);
+
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.cookie = `${STORAGE_KEYS.locale}=${locale}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; SameSite=Lax`;
 }
 
 function applyDocumentTheme(theme: ThemeMode) {
@@ -816,11 +827,17 @@ function ProfileGlyph() {
   );
 }
 
-export function DearTodayApp({ initialView }: { initialView: View }) {
+export function DearTodayApp({
+  initialView,
+  initialLocale = "ko",
+}: {
+  initialView: View;
+  initialLocale?: Locale;
+}) {
   const isHome = initialView === "home";
   const isWrite = initialView === "write";
   const isMyPosts = initialView === "my-posts";
-  const [locale, setLocale] = useState<Locale>("en");
+  const [locale, setLocale] = useState<Locale>(initialLocale);
   const [theme, setTheme] = useState<ThemeMode>("light");
   const [posts, setPosts] = useState<Post[]>(seedPosts);
   const [profile, setProfile] = useState<Profile>(defaultProfile);
@@ -829,7 +846,6 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const [profileOwnedIds, setProfileOwnedIds] = useState<string[]>([]);
   const [form, setForm] = useState<FormState>({
     ...initialForm,
-    author: defaultProfile.name,
   });
   const [selectedPromptIndex] = useState(0);
   const [successMessage, setSuccessMessage] = useState("");
@@ -915,10 +931,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     const hydrate = window.setTimeout(() => {
       const nextDeviceId = getOrCreateDeviceId();
       const storedLocale = readStorage<Locale | null>(STORAGE_KEYS.locale, null);
-      const browserLocale: Locale = navigator.language.startsWith("ko")
-        ? "ko"
-        : "en";
-      const nextLocale = storedLocale ?? browserLocale;
+      const nextLocale = storedLocale ?? initialLocale;
       const storedTheme = readStorage<ThemeMode | null>(STORAGE_KEYS.theme, null);
       const systemTheme: ThemeMode = window.matchMedia("(prefers-color-scheme: dark)")
         .matches
@@ -956,7 +969,8 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       setSortReferenceTime(Date.now());
       setForm((current) => ({
         ...current,
-        author: localizedGuestProfile.name,
+        author:
+          localizedGuestProfile.mode === "member" ? localizedGuestProfile.name : "",
       }));
       setNicknameDraft(localizedGuestProfile.name);
     }, 0);
@@ -964,7 +978,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     return () => {
       window.clearTimeout(hydrate);
     };
-  }, []);
+  }, [initialLocale]);
 
   useEffect(() => {
     if (!actionMenuId) {
@@ -1001,7 +1015,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       return;
     }
 
-    persistStorage(STORAGE_KEYS.locale, locale);
+    persistLocalePreference(locale);
     document.documentElement.lang = locale === "ko" ? "ko" : "en";
   }, [hasHydrated, locale]);
 
@@ -1385,6 +1399,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     form.body.trim().length >= 12 &&
     form.body.length <= MAX_POST_LENGTH &&
     (profile.mode === "member" ||
+      form.author.trim().length === 0 ||
       (form.author.trim().length >= MIN_AUTHOR_LENGTH &&
         form.author.trim().length <= MAX_AUTHOR_LENGTH)) &&
     (profile.mode === "member" || form.password.trim().length >= 4);
@@ -1464,6 +1479,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     }
 
     let entryId = createLocalId("post");
+    const guestAuthorName = form.author.trim() || c.common.defaultGuest;
     setIsSubmitting(true);
     setSuccessMessage("");
     setLastCreatedId(null);
@@ -1486,7 +1502,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                 }
               : {
                   kind: "guest",
-                  authorName: form.author.trim(),
+                  authorName: guestAuthorName,
                   password: form.password,
                 },
           locale: navigator.language,
@@ -1520,7 +1536,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
     const newPost: Post = {
       id: entryId,
-      author: profile.mode === "member" ? profile.name : form.author.trim(),
+      author: profile.mode === "member" ? profile.name : guestAuthorName,
       body: form.body.trim(),
       createdAt: new Date().toISOString(),
       hearts: 0,
@@ -1540,7 +1556,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     }
     setForm({
       body: "",
-      author: profile.name,
+      author: profile.mode === "member" ? profile.name : "",
       password: "",
       visibility: "public",
     });
@@ -1944,7 +1960,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     setNicknameDraft(guestProfile.name);
     setForm((current) => ({
       ...current,
-      author: guestProfile.name,
+      author: "",
       password: "",
     }));
   };
@@ -2133,36 +2149,43 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
                     {profile.mode === "member" ? (
                       <div className="mt-4">
-                        <label className="text-xs font-medium text-[var(--muted)]">
+                        <label className="sr-only" htmlFor="profile-nickname">
                           {c.account.nicknameTitle}
-                          <div className="mt-2 flex items-center gap-2">
-                            <input
-                              value={nicknameDraft}
-                              maxLength={MAX_AUTHOR_LENGTH}
-                              onChange={(event) => {
-                                setNicknameDraft(event.target.value);
-                                setNicknameFeedback("");
-                                setNicknameError(false);
-                              }}
-                              className={`min-w-0 flex-1 rounded-full border bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)] ${
-                                nicknameError
-                                  ? "shake border-[var(--accent)] shadow-[0_0_0_4px_rgba(184,109,82,0.12)]"
-                                  : "border-[var(--line)]"
-                              }`}
-                              placeholder={c.account.nicknamePlaceholder}
-                            />
-                            <button
-                              type="button"
-                              onClick={saveNickname}
-                              disabled={!canSaveNickname}
-                              className={`shrink-0 rounded-full ink-fill px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-45 ${
-                                nicknameError ? "shake" : ""
-                              }`}
-                            >
-                              {isSavingNickname ? c.account.saving : c.account.saveNickname}
-                            </button>
-                          </div>
                         </label>
+                        <div
+                          className={`flex items-center gap-2 border-b pb-2 ${
+                            nicknameError
+                              ? "shake border-[var(--accent)]"
+                              : "border-[var(--line)]"
+                          }`}
+                        >
+                          <input
+                            id="profile-nickname"
+                            value={nicknameDraft}
+                            maxLength={MAX_AUTHOR_LENGTH}
+                            onChange={(event) => {
+                              setNicknameDraft(event.target.value);
+                              setNicknameFeedback("");
+                              setNicknameError(false);
+                            }}
+                            className="min-w-0 flex-1 bg-transparent px-0 py-1 text-sm font-medium text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]"
+                            placeholder={c.account.nicknamePlaceholder}
+                          />
+                          <button
+                            type="button"
+                            onClick={saveNickname}
+                            disabled={!canSaveNickname}
+                            className={`shrink-0 rounded-full px-2 py-1 text-[11px] font-medium ${
+                              canSaveNickname
+                                ? "text-[var(--accent-strong)] hover:bg-[rgba(184,109,82,0.1)]"
+                                : "text-[var(--muted)] opacity-45"
+                            } disabled:cursor-not-allowed ${
+                              nicknameError ? "shake" : ""
+                            }`}
+                          >
+                            {isSavingNickname ? c.account.saving : c.account.saveNickname}
+                          </button>
+                        </div>
                         <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
                           {nicknameHelpText}
                         </p>
@@ -2179,15 +2202,6 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                             {nicknameFeedback}
                           </p>
                         ) : null}
-                        <div className="mt-3 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={signOut}
-                            className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs text-[var(--muted)]"
-                          >
-                            {c.account.signOut}
-                          </button>
-                        </div>
                       </div>
                     ) : (
                       <button
@@ -2198,6 +2212,18 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         {c.common.continueGoogle}
                       </button>
                     )}
+
+                    {profile.mode === "member" ? (
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={signOut}
+                          className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs text-[var(--muted)] hover:bg-[var(--surface-strong)]"
+                        >
+                          {c.account.signOut}
+                        </button>
+                      </div>
+                    ) : null}
 
                     <div className="mt-3 flex items-center justify-end gap-2">
                       <div className="grid grid-cols-2 gap-1 rounded-full border border-[var(--line)] bg-[var(--surface)] p-0.5">
@@ -2296,6 +2322,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                               }))
                             }
                             className="mt-2 w-full rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+                            placeholder={c.home.authorPlaceholder}
                           />
                         </label>
 
@@ -2416,16 +2443,16 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
             <section>
               <div className="flex flex-col gap-3" id="latest-feed">
                 <div className="flex justify-end">
-                  <div className="flex items-center gap-2">
+                  <div className="grid grid-cols-2 gap-1 rounded-full bg-[var(--control-surface)] p-1 shadow-[0_10px_26px_rgba(45,36,31,0.035)]">
                     {(["latest", "today"] as const).map((sort) => (
                       <button
                         key={sort}
                         type="button"
                         onClick={() => setFeedSort(sort)}
-                        className={`rounded-full px-4 py-2 text-xs ${
+                        className={`rounded-full px-4 py-2 text-xs font-medium ${
                           feedSort === sort
-                            ? "ink-fill"
-                            : "soft-control text-[var(--muted)]"
+                            ? "ink-fill shadow-[0_8px_20px_rgba(45,36,31,0.12)]"
+                            : "text-[var(--muted)] hover:bg-[var(--control-hover)]"
                         }`}
                       >
                         {sort === "latest" ? c.home.sortLatest : c.home.sortToday}
