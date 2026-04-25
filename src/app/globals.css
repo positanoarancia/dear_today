@@ -142,8 +142,7 @@ select {
 
 .notice-strip {
   background:
-    linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface) 58%, transparent) 8%, color-mix(in srgb, var(--surface) 58%, transparent) 92%, transparent);
-  border-block: 1px solid color-mix(in srgb, var(--line) 54%, transparent);
+    linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface) 26%, transparent) 10%, color-mix(in srgb, var(--surface) 26%, transparent) 90%, transparent);
 }
 
 .notice-prompt {
