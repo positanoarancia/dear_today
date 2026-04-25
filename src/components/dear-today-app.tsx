@@ -647,6 +647,8 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
+  const [editingVisibility, setEditingVisibility] =
+    useState<FormState["visibility"]>("public");
   const [verification, setVerification] = useState("");
   const [verificationError, setVerificationError] = useState(false);
   const [deleteCandidate, setDeleteCandidate] = useState<string | null>(null);
@@ -1256,6 +1258,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     setEditingId(post.id);
     setActionMenuId(null);
     setEditingDraft(post.body);
+    setEditingVisibility(post.visibility ?? "public");
     setVerification("");
     setVerificationError(false);
   };
@@ -1319,6 +1322,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
           },
           body: JSON.stringify({
             body: editingDraft.trim(),
+            ...(isProfileDatabaseOwner ? { visibility: editingVisibility } : {}),
             actor:
               isProfileDatabaseOwner
                 ? {
@@ -1345,7 +1349,15 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
     setPosts((current) =>
       current.map((item) =>
-        item.id === editingId ? { ...item, body: editingDraft.trim() } : item,
+        item.id === editingId
+          ? {
+              ...item,
+              body: editingDraft.trim(),
+              ...(profile.mode === "member" && profileOwnedIds.includes(item.id)
+                ? { visibility: editingVisibility }
+                : {}),
+            }
+          : item,
       ),
     );
     setEditingId(null);
@@ -1596,6 +1608,13 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
           formatCalendarDate(profile.nextDisplayNameChangeAt, locale),
         )
       : c.account.nicknameFirstHelp;
+  const editingPost = editingId
+    ? (posts.find((post) => post.id === editingId) ?? null)
+    : null;
+  const canEditVisibility =
+    profile.mode === "member" &&
+    editingPost !== null &&
+    profileOwnedIds.includes(editingPost.id);
 
   return (
     <div className="min-h-screen pb-8 text-[var(--foreground)]">
@@ -1843,7 +1862,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     <label className="text-sm text-[var(--muted)]">
                       {profile.mode === "member" ? "Visibility" : "Guest password"}
                       {profile.mode === "member" ? (
-                        <div className="mt-2 inline-flex w-fit rounded-full soft-control p-1">
+                        <div className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--surface)] p-0.5">
                           {(["public", "hidden"] as const).map((visibility) => (
                             <button
                               key={visibility}
@@ -1851,7 +1870,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                               onClick={() =>
                                 setForm((current) => ({ ...current, visibility }))
                               }
-                              className={`rounded-full px-3 py-2 text-sm ${
+                              className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${
                                 form.visibility === visibility
                                   ? "ink-fill"
                                   : "text-[var(--muted)] hover:bg-[var(--control-hover)]"
@@ -2281,7 +2300,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     placeholder={c.home.passwordPlaceholder}
                   />
                 ) : (
-                  <div className="inline-flex w-fit rounded-full soft-control p-1">
+                  <div className="inline-flex w-fit items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--surface)] p-0.5">
                     {(["public", "hidden"] as const).map((visibility) => (
                       <button
                         key={visibility}
@@ -2289,7 +2308,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         onClick={() =>
                           setForm((current) => ({ ...current, visibility }))
                         }
-                        className={`rounded-full px-3 py-2 text-sm ${
+                        className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${
                           form.visibility === visibility
                             ? "ink-fill"
                             : "text-[var(--muted)] hover:bg-[var(--control-hover)]"
@@ -2342,11 +2361,33 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
             </p>
 
             {editingId ? (
-              <textarea
-                value={editingDraft}
-                onChange={(event) => setEditingDraft(event.target.value)}
-                className="mt-5 min-h-40 w-full rounded-[22px] border border-[var(--line)] bg-[var(--surface)] px-4 py-4 text-sm leading-7 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
-              />
+              <>
+                <textarea
+                  value={editingDraft}
+                  onChange={(event) => setEditingDraft(event.target.value)}
+                  className="mt-5 min-h-40 w-full rounded-[22px] border border-[var(--line)] bg-[var(--surface)] px-4 py-4 text-sm leading-7 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+                />
+                {canEditVisibility ? (
+                  <div className="mt-3 inline-flex w-fit items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--surface)] p-0.5">
+                    {(["public", "hidden"] as const).map((visibility) => (
+                      <button
+                        key={visibility}
+                        type="button"
+                        onClick={() => setEditingVisibility(visibility)}
+                        className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${
+                          editingVisibility === visibility
+                            ? "ink-fill"
+                            : "text-[var(--muted)] hover:bg-[var(--control-hover)]"
+                        }`}
+                      >
+                        {visibility === "public"
+                          ? c.common.publicNote
+                          : c.common.privateNote}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
+              </>
             ) : null}
 
             {(() => {

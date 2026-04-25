@@ -216,10 +216,31 @@ export async function updateEntry(input: UpdateEntryInput) {
     };
   }
 
+  if (
+    input.visibility &&
+    input.visibility !== "public" &&
+    input.visibility !== "hidden"
+  ) {
+    return {
+      ok: false as const,
+      errors: ["Visibility must be public or hidden."],
+    };
+  }
+
+  if (input.visibility === "hidden" && !isProfileOwner) {
+    return {
+      ok: false as const,
+      errors: ["Guest entries cannot be hidden."],
+    };
+  }
+
   await db
     .update(gratitudeEntries)
     .set({
       body,
+      ...(isProfileOwner && input.visibility
+        ? { visibility: input.visibility }
+        : {}),
       updatedAt: new Date(),
     })
     .where(eq(gratitudeEntries.id, input.entryId));

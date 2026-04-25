@@ -29,6 +29,7 @@ export type CreateEntryInput = {
 export type UpdateEntryInput = {
   entryId: string;
   body: string;
+  visibility?: EntryVisibility;
   actor:
     | {
         kind: "guest";
