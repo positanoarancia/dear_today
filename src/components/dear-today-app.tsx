@@ -8,7 +8,6 @@ import {
   MAX_POST_LENGTH,
   MIN_AUTHOR_LENGTH,
   defaultProfile,
-  seedPosts,
   type Post,
   type Profile,
   type View,
@@ -29,8 +28,8 @@ type FeedSort = "latest" | "today";
 type MyPostsFilter = "all" | "public" | "hidden";
 type ThemeMode = "light" | "evening";
 
-const INITIAL_NOTICE_DATE_KEY = "daily-notice-initial";
 const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+const THEME_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
 const configuredNoticeText =
   process.env.NEXT_PUBLIC_DEAR_TODAY_NOTICE_TEXT?.trim() ?? "";
@@ -627,6 +626,16 @@ function persistLocalePreference(locale: Locale) {
   document.cookie = `${STORAGE_KEYS.locale}=${locale}; path=/; max-age=${LOCALE_COOKIE_MAX_AGE}; SameSite=Lax`;
 }
 
+function persistThemePreference(theme: ThemeMode) {
+  persistStorage(STORAGE_KEYS.theme, theme);
+
+  if (typeof document === "undefined") {
+    return;
+  }
+
+  document.cookie = `${STORAGE_KEYS.theme}=${theme}; path=/; max-age=${THEME_COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
 function applyDocumentTheme(theme: ThemeMode) {
   if (typeof document === "undefined") {
     return;
@@ -830,16 +839,20 @@ function ProfileGlyph() {
 export function DearTodayApp({
   initialView,
   initialLocale = "ko",
+  initialTheme = "light",
+  initialNoticeDateKey = null,
 }: {
   initialView: View;
   initialLocale?: Locale;
+  initialTheme?: ThemeMode;
+  initialNoticeDateKey?: string | null;
 }) {
   const isHome = initialView === "home";
   const isWrite = initialView === "write";
   const isMyPosts = initialView === "my-posts";
   const [locale, setLocale] = useState<Locale>(initialLocale);
-  const [theme, setTheme] = useState<ThemeMode>("light");
-  const [posts, setPosts] = useState<Post[]>(seedPosts);
+  const [theme, setTheme] = useState<ThemeMode>(initialTheme);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [profile, setProfile] = useState<Profile>(defaultProfile);
   const [heartedIds, setHeartedIds] = useState<string[]>([]);
   const [ownedIds, setOwnedIds] = useState<string[]>([]);
@@ -878,8 +891,8 @@ export function DearTodayApp({
   const [sortReferenceTime, setSortReferenceTime] = useState(0);
   const [pendingPosts, setPendingPosts] = useState<Post[]>([]);
   const [isCheckingFeed, setIsCheckingFeed] = useState(false);
-  const [dailyNoticeDateKey, setDailyNoticeDateKey] = useState(
-    INITIAL_NOTICE_DATE_KEY,
+  const [dailyNoticeDateKey, setDailyNoticeDateKey] = useState<string | null>(
+    initialNoticeDateKey,
   );
   const postsRef = useRef(posts);
   const notePreviewRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -930,15 +943,19 @@ export function DearTodayApp({
   useEffect(() => {
     const hydrate = window.setTimeout(() => {
       const nextDeviceId = getOrCreateDeviceId();
-      const storedLocale = readStorage<Locale | null>(STORAGE_KEYS.locale, null);
-      const nextLocale = storedLocale ?? initialLocale;
+      const nextLocale = initialLocale;
       const storedTheme = readStorage<ThemeMode | null>(STORAGE_KEYS.theme, null);
       const systemTheme: ThemeMode = window.matchMedia("(prefers-color-scheme: dark)")
         .matches
         ? "evening"
         : "light";
-      const nextTheme = storedTheme ?? systemTheme;
-      const storedPosts = readStorage<Post[]>(STORAGE_KEYS.posts, seedPosts);
+      const documentTheme = document.documentElement.dataset.theme;
+      const nextTheme =
+        storedTheme ??
+        (documentTheme === "evening" || documentTheme === "light"
+          ? documentTheme
+          : systemTheme);
+      const storedPosts = readStorage<Post[]>(STORAGE_KEYS.posts, []);
       const storedProfile = readStorage<Profile>(
         STORAGE_KEYS.profile,
         defaultProfile,
@@ -1024,7 +1041,7 @@ export function DearTodayApp({
       return;
     }
 
-    persistStorage(STORAGE_KEYS.theme, theme);
+    persistThemePreference(theme);
     document.documentElement.dataset.theme = theme;
   }, [hasHydrated, theme]);
 
@@ -1974,7 +1991,7 @@ export function DearTodayApp({
     applyDocumentTheme(nextTheme);
 
     if (hasHydrated) {
-      persistStorage(STORAGE_KEYS.theme, nextTheme);
+      persistThemePreference(nextTheme);
     }
   };
 
@@ -2030,7 +2047,8 @@ export function DearTodayApp({
       ? c.modal.deleteBodyGuest
       : c.modal.deleteBodyMember;
   const operatorNoticeText =
-    configuredNoticeText || getDailyNoticePrompt(locale, dailyNoticeDateKey);
+    configuredNoticeText ||
+    (dailyNoticeDateKey ? getDailyNoticePrompt(locale, dailyNoticeDateKey) : "");
 
   return (
     <div className="min-h-screen pb-8 text-[var(--foreground)]">
