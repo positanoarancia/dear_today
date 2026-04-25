@@ -1654,25 +1654,6 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       </div>
                     </div>
 
-                    <div className="mt-4 grid grid-cols-2 gap-2 rounded-full bg-[var(--surface)] p-1">
-                      {(["light", "evening"] as ThemeMode[]).map((mode) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setTheme(mode)}
-                          className={`rounded-full px-3 py-2 text-xs ${
-                            theme === mode
-                              ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
-                              : "text-[var(--muted)] hover:bg-[var(--surface-strong)]"
-                          }`}
-                        >
-                          {mode === "light"
-                            ? c.common.themeLight
-                            : c.common.themeEvening}
-                        </button>
-                      ))}
-                    </div>
-
                     {profile.mode === "member" ? (
                       <div className="mt-4">
                         <label className="text-xs font-medium text-[var(--muted)]">
@@ -1717,14 +1698,34 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       </button>
                     )}
 
-                    <button
-                      type="button"
-                      onClick={() => setLocale(locale === "en" ? "ko" : "en")}
-                      className="mt-3 w-full rounded-full border border-[var(--line)] px-4 py-2 text-xs text-[var(--muted)] hover:bg-[var(--surface)]"
-                      aria-label={locale === "en" ? "한국어로 보기" : "View in English"}
-                    >
-                      {locale === "en" ? "한국어로 보기" : "View in English"}
-                    </button>
+                    <div className="mt-3 flex items-center justify-end gap-2">
+                      <div className="grid grid-cols-2 gap-1 rounded-full border border-[var(--line)] bg-[var(--surface)] p-0.5">
+                        {(["light", "evening"] as ThemeMode[]).map((mode) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => setTheme(mode)}
+                            className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${
+                              theme === mode
+                                ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
+                                : "text-[var(--muted)] hover:bg-[var(--surface-strong)]"
+                            }`}
+                          >
+                            {mode === "light"
+                              ? c.common.themeLight
+                              : c.common.themeEvening}
+                          </button>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setLocale(locale === "en" ? "ko" : "en")}
+                        className="rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1 text-[11px] leading-none text-[var(--muted)] hover:bg-[var(--surface-strong)]"
+                        aria-label={locale === "en" ? "한국어로 보기" : "View in English"}
+                      >
+                        {locale === "en" ? "KO" : "EN"}
+                      </button>
+                    </div>
                   </div>
                 ) : null}
               </div>
