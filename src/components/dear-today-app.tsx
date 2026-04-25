@@ -132,7 +132,7 @@ const copy = {
       guestWrite: "Write as guest",
     },
     myPosts: {
-      eyebrow: "My posts",
+      eyebrow: "Archive",
       title: "Your quiet archive",
       heroTitleMember: "Your gratitude notes, held in one quiet place.",
       heroTitleGuest: "A calmer archive starts with sign-in.",
@@ -309,7 +309,7 @@ const copy = {
       guestWrite: "게스트로 쓰기",
     },
     myPosts: {
-      eyebrow: "내 글",
+      eyebrow: "보관함",
       title: "내 글",
       heroTitleMember: "내 감사 글을 한곳에 조용히 모아둡니다.",
       heroTitleGuest: "차분한 보관함은 로그인 후 시작됩니다.",
@@ -632,6 +632,12 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   >("idle");
   const c = copy[locale];
   const selectedPrompt = c.prompts[selectedPromptIndex];
+  const reactionActor =
+    profile.mode === "member"
+      ? ({ kind: "profile", profileId: profile.id } as const)
+      : ({ kind: "device", deviceId } as const);
+  const reactionActorKey =
+    profile.mode === "member" ? `profile:${profile.id}` : `device:${deviceId}`;
 
   useEffect(() => {
     postsRef.current = posts;
@@ -737,7 +743,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
       try {
         const response = await fetch(
-          `/api/entries?actorKey=${encodeURIComponent(`device:${deviceId}`)}`,
+          `/api/entries?actorKey=${encodeURIComponent(reactionActorKey)}`,
           {
             signal: controller.signal,
           },
@@ -770,7 +776,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
         if (missingOwnedIds.length > 0) {
           const ownedResponse = await fetch(
             `/api/entries?actorKey=${encodeURIComponent(
-              `device:${deviceId}`,
+              reactionActorKey,
             )}&ids=${encodeURIComponent(missingOwnedIds.join(","))}`,
             {
               signal: controller.signal,
@@ -793,11 +799,21 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
         );
 
         if (apiPosts.length > 0) {
-          setPosts(apiPosts);
-          setHeartedIds(
-            allEntries
-              .filter((entry) => entry.viewerHasHearted)
-              .map((entry) => entry.id),
+          setPosts((current) =>
+            mergePosts(
+              apiPosts,
+              current.filter((post) => (post.visibility ?? "public") === "hidden"),
+            ),
+          );
+          const apiEntryIds = allEntries.map((entry) => entry.id);
+          const apiHeartedIds = allEntries
+            .filter((entry) => entry.viewerHasHearted)
+            .map((entry) => entry.id);
+          setHeartedIds((current) =>
+            mergeUniqueStable(
+              current.filter((id) => !apiEntryIds.includes(id)),
+              apiHeartedIds,
+            ),
           );
           const editableIds = allEntries
             .filter((entry) => entry.canEdit)
@@ -818,7 +834,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     loadEntries();
 
     return () => controller.abort();
-  }, [deviceId, hasHydrated, ownedIds]);
+  }, [deviceId, hasHydrated, ownedIds, reactionActorKey]);
 
   useEffect(() => {
     if (!deviceId || !hasHydrated || !isHome) {
@@ -836,7 +852,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
       try {
         const response = await fetch(
-          `/api/entries?actorKey=${encodeURIComponent(`device:${deviceId}`)}`,
+          `/api/entries?actorKey=${encodeURIComponent(reactionActorKey)}`,
         );
 
         if (!response.ok) {
@@ -875,7 +891,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       window.clearTimeout(firstCheck);
       window.clearInterval(interval);
     };
-  }, [deviceId, hasHydrated, isHome]);
+  }, [deviceId, hasHydrated, isHome, reactionActorKey]);
 
   useEffect(() => {
     if (!hasHydrated) {
@@ -1071,8 +1087,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
         body: JSON.stringify({
           entryId: postId,
           actor: {
-            kind: "device",
-            deviceId,
+            ...reactionActor,
           },
         }),
       });
@@ -1579,29 +1594,31 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       <div className="mt-4">
                         <label className="text-xs font-medium text-[var(--muted)]">
                           {c.account.nicknameTitle}
-                          <input
-                            value={nicknameDraft}
-                            onChange={(event) => setNicknameDraft(event.target.value)}
-                            className="mt-2 w-full rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
-                            placeholder={c.account.nicknamePlaceholder}
-                          />
+                          <div className="mt-2 flex items-center gap-2">
+                            <input
+                              value={nicknameDraft}
+                              onChange={(event) => setNicknameDraft(event.target.value)}
+                              className="min-w-0 flex-1 rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+                              placeholder={c.account.nicknamePlaceholder}
+                            />
+                            <button
+                              type="button"
+                              onClick={saveNickname}
+                              disabled={isSavingNickname}
+                              className="shrink-0 rounded-full bg-[var(--foreground)] px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-45"
+                            >
+                              {isSavingNickname ? c.account.saving : c.account.saveNickname}
+                            </button>
+                          </div>
                         </label>
                         <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
                           {c.profile.nicknameHelp}
                         </p>
-                        <div className="mt-4 flex gap-2">
-                          <button
-                            type="button"
-                            onClick={saveNickname}
-                            disabled={isSavingNickname}
-                            className="flex-1 rounded-full bg-[var(--foreground)] px-4 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-45"
-                          >
-                            {isSavingNickname ? c.account.saving : c.account.saveNickname}
-                          </button>
+                        <div className="mt-3 flex justify-end">
                           <button
                             type="button"
                             onClick={signOut}
-                            className="rounded-full border border-[var(--line)] px-4 py-2 text-xs text-[var(--muted)]"
+                            className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs text-[var(--muted)]"
                           >
                             {c.account.signOut}
                           </button>
@@ -1682,7 +1699,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     <label className="text-sm text-[var(--muted)]">
                       {profile.mode === "member" ? "Visibility" : "Guest password"}
                       {profile.mode === "member" ? (
-                        <div className="mt-2 grid grid-cols-2 rounded-full bg-white/70 p-1">
+                        <div className="mt-2 inline-flex w-fit rounded-full bg-white/70 p-1">
                           {(["public", "hidden"] as const).map((visibility) => (
                             <button
                               key={visibility}
@@ -2099,7 +2116,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     placeholder={c.home.passwordPlaceholder}
                   />
                 ) : (
-                  <div className="grid grid-cols-2 rounded-full bg-white/70 p-1">
+                  <div className="inline-flex w-fit rounded-full bg-white/70 p-1">
                     {(["public", "hidden"] as const).map((visibility) => (
                       <button
                         key={visibility}

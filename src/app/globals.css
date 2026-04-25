@@ -115,7 +115,6 @@ textarea {
 
 .note-preview {
   display: -webkit-box;
-  max-height: calc(1em * 1.9 * 4);
   overflow: hidden;
   overflow-wrap: anywhere;
   word-break: break-word;
