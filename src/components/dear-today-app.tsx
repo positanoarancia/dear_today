@@ -29,10 +29,139 @@ type FeedSort = "latest" | "today";
 type MyPostsFilter = "all" | "public" | "hidden";
 type ThemeMode = "light" | "evening";
 
+const INITIAL_NOTICE_DATE_KEY = "daily-notice-initial";
+
 const configuredNoticeText =
   process.env.NEXT_PUBLIC_DEAR_TODAY_NOTICE_TEXT?.trim() ?? "";
 const configuredNoticeUrl =
   process.env.NEXT_PUBLIC_DEAR_TODAY_NOTICE_URL?.trim() ?? "";
+
+const dailyNoticePrompts = {
+  en: [
+    "What was the most grateful moment of your day?",
+    "What made you smile a little today?",
+    "What felt most fortunate today?",
+    "Was there someone you felt thankful for today?",
+    "What made the day a little less heavy?",
+    "Was there a meal you felt grateful for today?",
+    "What can you thank your body for today?",
+    "When did today feel better than expected?",
+    "Was there a moment when your mind settled?",
+    "What felt more grateful after the day passed?",
+    "What waited for you today?",
+    "Was there anything kind in today's weather?",
+    "What words stayed with you today?",
+    "Did someone show you a small kindness today?",
+    "When did you feel thankful to yourself today?",
+    "What is one thing that passed safely today?",
+    "What was the least bad part of the day?",
+    "What still feels fortunate when you look back?",
+    "What felt best when you came home?",
+    "What helped you get through the day?",
+    "Was there a small good accident today?",
+    "What felt comfortable because it was not uncomfortable?",
+    "What kindness did you receive today?",
+    "Who would you like to thank today?",
+    "When did the day feel quietly comfortable?",
+    "What reassured you today?",
+    "What ordinary thing deserves thanks today?",
+    "What are you grateful is over today?",
+    "What scene would you like to remember?",
+    "If you choose just one thing, what are you thankful for?",
+    "Even an ordinary day leaves a small gratitude behind.",
+    "Even if today was not good, getting through it can be enough.",
+    "A short note is enough today.",
+    "If nothing comes to mind, start with what passed safely.",
+    "Gratitude does not need to be grand.",
+    "You do not have to fill all five. One is a beginning.",
+    "On tired days, gratitude can be smaller.",
+    "When your mind is crowded, begin with something simple.",
+    "You are allowed to write gratitude even on a hard day.",
+    "The sentence does not have to be perfect.",
+    "A hard day can still have a less hard moment.",
+    "It is okay if gratitude does not arrive right away.",
+    "Some days make gratitude hard to find.",
+    "Sometimes writing reveals what was grateful.",
+    "Something too small to notice can become today's gratitude.",
+    "A plain day is still worth recording.",
+    "You can write gratitude while not feeling great.",
+    "The smaller the gratitude, the more honest it can be.",
+    "Choose one from a person, a meal, a place, your body, or chance.",
+    "If five things feel hard, write one in a little more detail.",
+    "Try starting with, 'I was relieved that...'",
+    "Begin with the smallest thankfulness that comes to mind.",
+    "Find one grateful thing in something you ate today.",
+    "Think of one sentence someone said to you.",
+    "Write down one thing your body carried today.",
+    "Slowly remember the moment you came home.",
+    "Find one small difference inside your repeated routine.",
+    "If gratitude feels hard, write what was not uncomfortable.",
+    "Picture one grateful scene like a photo.",
+    "One sentence is enough. Leave it here now.",
+  ],
+  ko: [
+    "오늘 가장 고마웠던 순간은 언제였나요?",
+    "오늘 나를 조금 웃게 한 건 뭐였나요?",
+    "오늘 하루 중 제일 다행이었던 일은 무엇이었나요?",
+    "오늘 누군가에게 고마웠던 일이 있었나요?",
+    "오늘 나를 덜 힘들게 해준 것은 무엇이었나요?",
+    "오늘 먹은 것 중 고마웠던 한 끼가 있었나요?",
+    "오늘 내 몸에게 고맙다고 말할 일이 있었나요?",
+    "오늘 예상보다 괜찮았던 순간은 언제였나요?",
+    "오늘 마음이 잠깐 놓였던 장면이 있었나요?",
+    "오늘 지나고 보니 감사했던 일은 무엇인가요?",
+    "오늘 나를 기다려준 것은 무엇이었나요?",
+    "오늘의 날씨에서 고마운 점이 있었나요?",
+    "오늘 들은 말 중에 마음에 남은 것이 있었나요?",
+    "오늘 누군가의 작은 배려를 받았나요?",
+    "오늘 내가 나에게 고마웠던 순간은 언제였나요?",
+    "오늘 무사히 지나간 일 하나를 적어볼까요?",
+    "오늘 덜 나빴던 순간은 무엇이었나요?",
+    "오늘 다시 생각해도 다행인 일은 무엇인가요?",
+    "오늘 집에 돌아와 가장 좋았던 건 뭐였나요?",
+    "오늘 하루를 버티게 해준 것은 무엇이었나요?",
+    "오늘 우연히 좋았던 일이 있었나요?",
+    "오늘 불편하지 않아서 고마웠던 것은 무엇인가요?",
+    "오늘 내가 받은 친절 하나가 있었나요?",
+    "오늘 감사하다고 말하고 싶은 사람이 있나요?",
+    "오늘 작지만 편했던 순간은 언제였나요?",
+    "오늘 나를 안심시킨 것은 무엇이었나요?",
+    "오늘 당연하게 지나쳤지만 감사한 것은 무엇인가요?",
+    "오늘 끝나서 고마운 일이 있었나요?",
+    "오늘 계속 기억하고 싶은 장면이 있었나요?",
+    "오늘 하루에서 하나만 고른다면 무엇에 감사한가요?",
+    "별일 없는 하루에도 감사할 건 작게 남아 있어요.",
+    "좋은 하루가 아니었어도, 버틴 것만으로 적을 수 있어요.",
+    "오늘은 짧게 써도 충분해요.",
+    "아무것도 떠오르지 않는 날엔, 무사히 지나온 것부터 적어도 돼요.",
+    "감사는 거창하지 않아도 괜찮아요.",
+    "다섯 가지를 다 못 채워도 괜찮아요. 하나면 시작이에요.",
+    "피곤한 날의 감사는 더 작아도 괜찮아요.",
+    "마음이 복잡한 날엔 단순한 것부터 적어봐요.",
+    "오늘을 잘 보내지 못했어도 감사할 자격은 있어요.",
+    "완벽한 문장이 아니어도 괜찮아요.",
+    "힘든 하루에도 덜 힘들었던 순간은 있을 수 있어요.",
+    "감사한 마음이 바로 느껴지지 않아도 괜찮아요.",
+    "오늘은 고마운 걸 찾기 어려운 날일 수도 있어요.",
+    "적고 나서야 고마웠다는 걸 알게 되는 일도 있어요.",
+    "사소해서 지나친 일이 오늘의 감사가 될 수 있어요.",
+    "무난히 지나간 하루도 충분히 기록할 만해요.",
+    "기분이 좋지 않아도 감사일기를 쓸 수 있어요.",
+    "오늘의 감사가 작을수록 더 솔직할 때가 있어요.",
+    "오늘은 사람, 음식, 장소, 몸, 우연 중 하나를 골라 적어봐요.",
+    "감사 다섯 가지가 어렵다면, 하나를 조금 자세히 적어도 좋아요.",
+    "오늘은 “다행이었다”로 시작해보세요.",
+    "지금 떠오르는 가장 사소한 고마움부터 적어봐요.",
+    "오늘 먹은 것 하나에서 감사한 점을 찾아봐요.",
+    "누군가의 말 한마디를 떠올려보세요.",
+    "오늘 내 몸이 해낸 일을 하나 적어주세요.",
+    "집에 돌아온 순간을 천천히 떠올려보세요.",
+    "오늘 반복된 일상 안에서 달랐던 작은 점을 찾아봐요.",
+    "감사한 일을 쓰기 어렵다면, 불편하지 않았던 일을 적어도 좋아요.",
+    "오늘 고마웠던 장면을 사진처럼 떠올려보세요.",
+    "한 문장만 써도 괜찮으니 지금 바로 남겨봐요.",
+  ],
+} satisfies Record<Locale, string[]>;
 
 const copy = {
   en: {
@@ -521,6 +650,24 @@ function formatCalendarDate(iso: string, locale: Locale) {
   }).format(new Date(iso));
 }
 
+function getLocalDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function getDailyNoticePrompt(locale: Locale, dateKey: string) {
+  const prompts = dailyNoticePrompts[locale];
+  const seed = [...dateKey].reduce(
+    (total, character) => total + character.charCodeAt(0),
+    0,
+  );
+
+  return prompts[seed % prompts.length];
+}
+
 function splitNoteParagraphs(body: string) {
   return body
     .split(/\n+/)
@@ -708,6 +855,9 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const [sortReferenceTime, setSortReferenceTime] = useState(0);
   const [pendingPosts, setPendingPosts] = useState<Post[]>([]);
   const [isCheckingFeed, setIsCheckingFeed] = useState(false);
+  const [dailyNoticeDateKey, setDailyNoticeDateKey] = useState(
+    INITIAL_NOTICE_DATE_KEY,
+  );
   const postsRef = useRef(posts);
   const notePreviewRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [, setApiStatus] = useState<
@@ -725,6 +875,21 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   useEffect(() => {
     postsRef.current = posts;
   }, [posts]);
+
+  useEffect(() => {
+    const hydrationUpdate = window.setTimeout(() => {
+      setDailyNoticeDateKey(getLocalDateKey(new Date()));
+    }, 0);
+
+    const interval = window.setInterval(() => {
+      setDailyNoticeDateKey(getLocalDateKey(new Date()));
+    }, 60 * 1000);
+
+    return () => {
+      window.clearTimeout(hydrationUpdate);
+      window.clearInterval(interval);
+    };
+  }, []);
 
   useEffect(() => {
     const updateHeaderMode = () => {
@@ -1808,7 +1973,8 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     editingPost !== null && requiresGuestVerification(editingPost);
   const shouldShowEditPasswordFirst =
     editingId !== null && editingNeedsPassword && !isEditingUnlocked;
-  const operatorNoticeText = configuredNoticeText || c.common.notice;
+  const operatorNoticeText =
+    configuredNoticeText || getDailyNoticePrompt(locale, dailyNoticeDateKey);
 
   return (
     <div className="min-h-screen pb-8 text-[var(--foreground)]">
@@ -2029,18 +2195,18 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
         </header>
 
         {operatorNoticeText ? (
-          <div className="notice-strip -mx-4 px-4 py-2 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+          <div className="notice-strip -mx-4 px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
             {configuredNoticeUrl ? (
               <a
                 href={configuredNoticeUrl}
-                className="block truncate text-xs text-[var(--muted)] hover:text-[var(--accent-strong)]"
+                className="notice-prompt block text-sm leading-6 text-[var(--muted)] hover:text-[var(--accent-strong)]"
                 target="_blank"
                 rel="noreferrer"
               >
                 {operatorNoticeText}
               </a>
             ) : (
-              <p className="truncate text-xs text-[var(--muted)]">
+              <p className="notice-prompt text-sm leading-6 text-[var(--muted)]">
                 {operatorNoticeText}
               </p>
             )}
