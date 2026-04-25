@@ -28,7 +28,10 @@ export async function GET(request: NextRequest) {
       .map((id) => id.trim())
       .filter(Boolean);
     const limit = Number(request.nextUrl.searchParams.get("limit") ?? 24);
+    const cursorParam = request.nextUrl.searchParams.get("cursor");
+    const cursor = cursorParam ? new Date(cursorParam) : undefined;
     const profile = await getAuthProfile();
+    const safeLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 48) : 24;
 
     if (mine) {
       if (!profile) {
@@ -54,13 +57,21 @@ export async function GET(request: NextRequest) {
         })
       : await listLatestEntries({
           actorKey,
+          cursor:
+            cursor && Number.isFinite(cursor.getTime()) ? cursor : undefined,
           profileId: profile?.id,
-          limit: Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 48) : 24,
+          limit: safeLimit + 1,
         });
+    const visibleEntries = ids ? entries : entries.slice(0, safeLimit);
+    const nextCursor =
+      !ids && entries.length > safeLimit
+        ? visibleEntries.at(-1)?.createdAt
+        : null;
 
     return ok({
       ok: true,
-      entries,
+      entries: visibleEntries,
+      nextCursor,
     });
   } catch (error) {
     return serviceUnavailable(error);

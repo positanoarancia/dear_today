@@ -1,4 +1,4 @@
-import { and, count, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, lt, ne, sql } from "drizzle-orm";
 import { getDb } from "../db/client";
 import {
   entryReactions,
@@ -17,6 +17,7 @@ import type { CreateEntryInput, UpdateEntryInput } from "./types";
 
 export async function listLatestEntries(options?: {
   actorKey?: string;
+  cursor?: Date;
   profileId?: string;
   limit?: number;
 }): Promise<EntrySummary[]> {
@@ -40,7 +41,14 @@ export async function listLatestEntries(options?: {
     })
     .from(gratitudeEntries)
     .leftJoin(entryReactions, eq(entryReactions.entryId, gratitudeEntries.id))
-    .where(eq(gratitudeEntries.visibility, "public"))
+    .where(
+      and(
+        eq(gratitudeEntries.visibility, "public"),
+        options?.cursor
+          ? lt(gratitudeEntries.createdAt, options.cursor)
+          : undefined,
+      ),
+    )
     .groupBy(gratitudeEntries.id)
     .orderBy(desc(gratitudeEntries.createdAt))
     .limit(options?.limit ?? 24);

@@ -28,6 +28,7 @@ type FeedSort = "latest" | "today";
 type MyPostsFilter = "all" | "public" | "hidden";
 type ThemeMode = "light" | "evening";
 
+const FEED_PAGE_SIZE = 24;
 const LOCALE_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 const THEME_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
 
@@ -570,6 +571,12 @@ type ApiEntry = {
   canEdit: boolean;
 };
 
+type EntriesPayload = {
+  ok: boolean;
+  entries?: ApiEntry[];
+  nextCursor?: string | null;
+};
+
 type AuthProfilePayload = {
   id: string;
   provider: "google";
@@ -674,6 +681,30 @@ function formatCalendarDate(iso: string, locale: Locale) {
     month: "long",
     day: "numeric",
   }).format(new Date(iso));
+}
+
+function formatFeedDateDivider(iso: string, locale: Locale, referenceTime: number) {
+  const date = new Date(iso);
+  const reference = referenceTime > 0 ? new Date(referenceTime) : new Date(iso);
+  const dateKey = getLocalDateKey(date);
+  const todayKey = getLocalDateKey(reference);
+  const yesterday = new Date(reference);
+  yesterday.setDate(reference.getDate() - 1);
+  const yesterdayKey = getLocalDateKey(yesterday);
+
+  if (dateKey === todayKey) {
+    return locale === "ko" ? "오늘" : "Today";
+  }
+
+  if (dateKey === yesterdayKey) {
+    return locale === "ko" ? "어제" : "Yesterday";
+  }
+
+  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en", {
+    month: "long",
+    day: "numeric",
+    weekday: "short",
+  }).format(date);
 }
 
 function getLocalDateKey(date: Date) {
@@ -891,11 +922,16 @@ export function DearTodayApp({
   const [sortReferenceTime, setSortReferenceTime] = useState(0);
   const [pendingPosts, setPendingPosts] = useState<Post[]>([]);
   const [isCheckingFeed, setIsCheckingFeed] = useState(false);
+  const [feedNextCursor, setFeedNextCursor] = useState<string | null>(null);
+  const [hasMoreFeed, setHasMoreFeed] = useState(false);
+  const [isLoadingMoreFeed, setIsLoadingMoreFeed] = useState(false);
   const [dailyNoticeDateKey, setDailyNoticeDateKey] = useState<string | null>(
     initialNoticeDateKey,
   );
   const postsRef = useRef(posts);
+  const ownedIdsRef = useRef(ownedIds);
   const notePreviewRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const feedLoadMoreRef = useRef<HTMLDivElement | null>(null);
   const [, setApiStatus] = useState<
     "idle" | "loading" | "ready" | "fallback"
   >("idle");
@@ -911,6 +947,10 @@ export function DearTodayApp({
   useEffect(() => {
     postsRef.current = posts;
   }, [posts]);
+
+  useEffect(() => {
+    ownedIdsRef.current = ownedIds;
+  }, [ownedIds]);
 
   useEffect(() => {
     const hydrationUpdate = window.setTimeout(() => {
@@ -1057,7 +1097,9 @@ export function DearTodayApp({
 
       try {
         const response = await fetch(
-          `/api/entries?actorKey=${encodeURIComponent(reactionActorKey)}`,
+          `/api/entries?actorKey=${encodeURIComponent(
+            reactionActorKey,
+          )}&limit=${FEED_PAGE_SIZE}`,
           {
             signal: controller.signal,
           },
@@ -1068,10 +1110,7 @@ export function DearTodayApp({
           return;
         }
 
-        const payload = (await response.json()) as {
-          ok: boolean;
-          entries?: ApiEntry[];
-        };
+        const payload = (await response.json()) as EntriesPayload;
 
         if (!payload.ok || !payload.entries) {
           setApiStatus("fallback");
@@ -1079,9 +1118,11 @@ export function DearTodayApp({
         }
 
         const latestEntries = payload.entries;
+        setFeedNextCursor(payload.nextCursor ?? null);
+        setHasMoreFeed(Boolean(payload.nextCursor));
         const latestPosts = latestEntries.map(mapApiEntryToPost);
         let ownedEntries: ApiEntry[] = [];
-        const missingOwnedIds = ownedIds.filter(
+        const missingOwnedIds = ownedIdsRef.current.filter(
           (id) =>
             isDatabaseEntryId(id) &&
             !latestEntries.some((entry) => entry.id === id),
@@ -1148,7 +1189,7 @@ export function DearTodayApp({
     loadEntries();
 
     return () => controller.abort();
-  }, [deviceId, hasHydrated, ownedIds, reactionActorKey]);
+  }, [deviceId, hasHydrated, reactionActorKey]);
 
   useEffect(() => {
     if (!deviceId || !hasHydrated || !isHome) {
@@ -1166,17 +1207,16 @@ export function DearTodayApp({
 
       try {
         const response = await fetch(
-          `/api/entries?actorKey=${encodeURIComponent(reactionActorKey)}`,
+          `/api/entries?actorKey=${encodeURIComponent(
+            reactionActorKey,
+          )}&limit=${FEED_PAGE_SIZE}`,
         );
 
         if (!response.ok) {
           return;
         }
 
-        const payload = (await response.json()) as {
-          ok: boolean;
-          entries?: ApiEntry[];
-        };
+        const payload = (await response.json()) as EntriesPayload;
 
         if (!payload.ok || !payload.entries || ignore) {
           return;
@@ -1206,6 +1246,103 @@ export function DearTodayApp({
       window.clearInterval(interval);
     };
   }, [deviceId, hasHydrated, isHome, reactionActorKey]);
+
+  useEffect(() => {
+    if (
+      !deviceId ||
+      !feedNextCursor ||
+      !hasHydrated ||
+      !hasMoreFeed ||
+      !isHome ||
+      isLoadingMoreFeed
+    ) {
+      return;
+    }
+
+    const target = feedLoadMoreRef.current;
+    if (!target) {
+      return;
+    }
+
+    const cursor = feedNextCursor;
+    let ignore = false;
+
+    async function loadMoreEntries() {
+      setIsLoadingMoreFeed(true);
+
+      try {
+        const response = await fetch(
+          `/api/entries?actorKey=${encodeURIComponent(
+            reactionActorKey,
+          )}&limit=${FEED_PAGE_SIZE}&cursor=${encodeURIComponent(cursor)}`,
+        );
+
+        if (!response.ok || ignore) {
+          return;
+        }
+
+        const payload = (await response.json()) as EntriesPayload;
+
+        if (!payload.ok || !payload.entries || ignore) {
+          return;
+        }
+
+        const nextPosts = payload.entries.map(mapApiEntryToPost);
+        setPosts((current) => mergePosts(current, nextPosts));
+        setFeedNextCursor(payload.nextCursor ?? null);
+        setHasMoreFeed(Boolean(payload.nextCursor));
+
+        const apiEntryIds = payload.entries.map((entry) => entry.id);
+        const apiHeartedIds = payload.entries
+          .filter((entry) => entry.viewerHasHearted)
+          .map((entry) => entry.id);
+        setHeartedIds((current) =>
+          mergeUniqueStable(
+            current.filter((id) => !apiEntryIds.includes(id)),
+            apiHeartedIds,
+          ),
+        );
+
+        const editableIds = payload.entries
+          .filter((entry) => entry.canEdit)
+          .map((entry) => entry.id);
+        setOwnedIds((current) => mergeUniqueStable(current, editableIds));
+        setProfileOwnedIds((current) => mergeUniqueStable(current, editableIds));
+      } catch {
+        // Infinite loading should stay quiet; the current feed remains readable.
+      } finally {
+        if (!ignore) {
+          setIsLoadingMoreFeed(false);
+        }
+      }
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMoreEntries();
+        }
+      },
+      {
+        rootMargin: "480px 0px",
+      },
+    );
+
+    observer.observe(target);
+
+    return () => {
+      ignore = true;
+      observer.disconnect();
+    };
+  }, [
+    deviceId,
+    feedNextCursor,
+    hasHydrated,
+    hasMoreFeed,
+    isHome,
+    isLoadingMoreFeed,
+    reactionActorKey,
+  ]);
 
   useEffect(() => {
     if (!hasHydrated) {
@@ -1348,6 +1485,28 @@ export function DearTodayApp({
       ),
     [feedSort, posts, sortReferenceTime],
   );
+  const visiblePostGroups = useMemo(() => {
+    return visiblePosts.reduce<Array<{ key: string; label: string; posts: Post[] }>>(
+      (groups, post) => {
+        const key = getLocalDateKey(new Date(post.createdAt));
+        const currentGroup = groups.at(-1);
+
+        if (currentGroup?.key === key) {
+          currentGroup.posts.push(post);
+          return groups;
+        }
+
+        groups.push({
+          key,
+          label: formatFeedDateDivider(post.createdAt, locale, sortReferenceTime),
+          posts: [post],
+        });
+
+        return groups;
+      },
+      [],
+    );
+  }, [locale, sortReferenceTime, visiblePosts]);
   const canUsePersonalArchive = profile.mode === "member";
   const archivedPosts = useMemo(() => {
     if (!canUsePersonalArchive) {
@@ -2497,119 +2656,140 @@ export function DearTodayApp({
                   </p>
                 ) : null}
 
-                <div className="grid card-grid gap-4">
-                  {visiblePosts.map((post) => {
-                    const expanded = expandedIds.includes(post.id);
-                    const canExpand = expanded || collapsibleIds.includes(post.id);
-                    const isOwnProfilePost =
-                      profile.mode === "member" && profileOwnedIds.includes(post.id);
+                <div className="flex flex-col gap-5">
+                  {visiblePostGroups.map((group) => (
+                    <section key={group.key} className="feed-date-section">
+                      <div className="feed-date-divider">
+                        <span>{group.label}</span>
+                      </div>
 
-                    return (
-                      <article
-                        key={post.id}
-                        className={`paper-panel feed-enter flex flex-col rounded-[28px] p-5 ${
-                          getFeedCardSizeClass(post.body)
-                        } ${isOwnProfilePost ? "own-note-card" : ""}`}
-                      >
-                        <div className="flex min-w-0 items-start justify-between gap-3 text-sm text-[var(--muted)]">
-                          <span
-                            className="min-w-0 flex-1 truncate"
-                            title={post.author}
-                          >
-                            {post.author}
-                          </span>
-                          <span className="shrink-0 whitespace-nowrap text-right">
-                            {formatRelative(post.createdAt, locale)}
-                          </span>
-                        </div>
-                        <div
-                          ref={(element) => {
-                            notePreviewRefs.current[post.id] = element;
-                          }}
-                          className={`note-preview reading-text note-paragraphs mt-4 text-[15px] leading-8 text-[var(--foreground)] ${
-                            expanded
-                              ? "note-preview-expanded"
-                              : collapsibleIds.includes(post.id)
-                                ? "note-preview-collapsed"
-                                : ""
-                          }`}
+                      <div className="grid card-grid gap-4">
+                        {group.posts.map((post) => {
+                          const expanded = expandedIds.includes(post.id);
+                          const canExpand =
+                            expanded || collapsibleIds.includes(post.id);
+                          const isOwnProfilePost =
+                            profile.mode === "member" &&
+                            profileOwnedIds.includes(post.id);
+
+                          return (
+                        <article
+                          key={post.id}
+                          className={`paper-panel feed-enter flex flex-col rounded-[28px] p-5 ${
+                            getFeedCardSizeClass(post.body)
+                          } ${isOwnProfilePost ? "own-note-card" : ""}`}
                         >
-                          {renderNoteParagraphs(post.body)}
-                        </div>
-                        {canExpand ? (
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setExpandedIds((current) =>
-                                expanded
-                                  ? current.filter((id) => id !== post.id)
-                                  : [...current, post.id],
-                              )
-                            }
-                            className="mt-3 w-fit text-sm text-[var(--accent-strong)]"
+                          <div className="flex min-w-0 items-start justify-between gap-3 text-sm text-[var(--muted)]">
+                            <span
+                              className="min-w-0 flex-1 truncate"
+                              title={post.author}
+                            >
+                              {post.author}
+                            </span>
+                            <span className="shrink-0 whitespace-nowrap text-right">
+                              {formatRelative(post.createdAt, locale)}
+                            </span>
+                          </div>
+                          <div
+                            ref={(element) => {
+                              notePreviewRefs.current[post.id] = element;
+                            }}
+                            className={`note-preview reading-text note-paragraphs mt-4 text-[15px] leading-8 text-[var(--foreground)] ${
+                              expanded
+                                ? "note-preview-expanded"
+                                : collapsibleIds.includes(post.id)
+                                  ? "note-preview-collapsed"
+                                  : ""
+                            }`}
                           >
-                            {expanded ? c.home.showLess : c.home.readMore}
-                          </button>
-                        ) : null}
-
-                        <div className="mt-auto flex items-center justify-between pt-6">
-                          <button
-                            type="button"
-                            onClick={() => toggleHeart(post.id)}
-                            className={`heart-action inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm ${
-                              heartedIds.includes(post.id)
-                                ? "bg-[rgba(184,109,82,0.14)] text-[var(--accent-strong)]"
-                                : "soft-control text-[var(--muted)]"
-                            } ${heartPopIds.includes(post.id) ? "heart-action-pop" : ""}`}
-                          >
-                            <Heart filled={heartedIds.includes(post.id)} />
-                            {post.hearts}
-                          </button>
-                          <div className="relative">
+                            {renderNoteParagraphs(post.body)}
+                          </div>
+                          {canExpand ? (
                             <button
                               type="button"
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                setActionMenuId((current) =>
-                                  current === post.id ? null : post.id,
-                                );
-                              }}
-                              className="rounded-full px-3 py-2 text-lg leading-none text-[var(--muted)] hover:bg-[var(--control-hover)]"
-                              aria-label="Open note actions"
+                              onClick={() =>
+                                setExpandedIds((current) =>
+                                  expanded
+                                    ? current.filter((id) => id !== post.id)
+                                    : [...current, post.id],
+                                )
+                              }
+                              className="mt-3 w-fit text-sm text-[var(--accent-strong)]"
                             >
-                              ⋯
+                              {expanded ? c.home.showLess : c.home.readMore}
                             </button>
-                            {actionMenuId === post.id ? (
-                              <div
-                                onClick={(event) => event.stopPropagation()}
-                                className="absolute bottom-full right-0 z-20 mb-2 min-w-28 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 text-sm shadow-[0_16px_44px_rgba(45,36,31,0.14)]"
+                          ) : null}
+
+                          <div className="mt-auto flex items-center justify-between pt-6">
+                            <button
+                              type="button"
+                              onClick={() => toggleHeart(post.id)}
+                              className={`heart-action inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm ${
+                                heartedIds.includes(post.id)
+                                  ? "bg-[rgba(184,109,82,0.14)] text-[var(--accent-strong)]"
+                                  : "soft-control text-[var(--muted)]"
+                              } ${heartPopIds.includes(post.id) ? "heart-action-pop" : ""}`}
+                            >
+                              <Heart filled={heartedIds.includes(post.id)} />
+                              {post.hearts}
+                            </button>
+                            <div className="relative">
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setActionMenuId((current) =>
+                                    current === post.id ? null : post.id,
+                                  );
+                                }}
+                                className="rounded-full px-3 py-2 text-lg leading-none text-[var(--muted)] hover:bg-[var(--control-hover)]"
+                                aria-label="Open note actions"
                               >
-                                <button
-                                  type="button"
-                                  onClick={() => startEdit(post)}
-                                  className="block w-full rounded-xl px-3 py-2 text-left text-[var(--foreground)] hover:bg-[var(--surface)]"
+                                ⋯
+                              </button>
+                              {actionMenuId === post.id ? (
+                                <div
+                                  onClick={(event) => event.stopPropagation()}
+                                  className="absolute bottom-full right-0 z-20 mb-2 min-w-28 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 text-sm shadow-[0_16px_44px_rgba(45,36,31,0.14)]"
                                 >
-                                  {c.common.edit}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDeleteCandidate(post.id);
-                                    setActionMenuId(null);
-                                    setVerification("");
-                                    setIsEditingUnlocked(false);
-                                  }}
-                                  className="block w-full rounded-xl px-3 py-2 text-left text-[var(--foreground)] hover:bg-[var(--surface)]"
-                                >
-                                  {c.common.delete}
-                                </button>
-                              </div>
-                            ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={() => startEdit(post)}
+                                    className="block w-full rounded-xl px-3 py-2 text-left text-[var(--foreground)] hover:bg-[var(--surface)]"
+                                  >
+                                    {c.common.edit}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setDeleteCandidate(post.id);
+                                      setActionMenuId(null);
+                                      setVerification("");
+                                      setIsEditingUnlocked(false);
+                                    }}
+                                    className="block w-full rounded-xl px-3 py-2 text-left text-[var(--foreground)] hover:bg-[var(--surface)]"
+                                  >
+                                    {c.common.delete}
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
-                        </div>
-                      </article>
-                    );
-                  })}
+                        </article>
+                          );
+                        })}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+                <div ref={feedLoadMoreRef} className="min-h-12">
+                  {isLoadingMoreFeed ? (
+                    <p className="feed-loading-note">
+                      {locale === "ko"
+                        ? "이전 감사들을 조용히 불러오는 중"
+                        : "Quietly loading older gratitude notes"}
+                    </p>
+                  ) : null}
                 </div>
               </div>
             </section>
