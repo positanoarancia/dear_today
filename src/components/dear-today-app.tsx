@@ -223,7 +223,7 @@ const copy = {
       quickNote: "Quick note",
       openComposer: "Leave a note",
       closeComposer: "Close writing",
-      notePlaceholder: "One small gratitude per line...",
+      notePlaceholder: "One small gratitude per line.",
       noteHint: "Try one small gratitude per line. Three is enough.",
       authorPlaceholder: "Posting nickname",
       passwordPlaceholder: "Guest password for edits",
@@ -333,10 +333,13 @@ const copy = {
       deleteEyebrow: "Delete note",
       editTitle: "Refine your gratitude note",
       deleteTitle: "Remove this note from your archive?",
-      editBody:
+      editBodyGuest:
         "Guest notes require the password you used when writing. Logged-in posts can be updated directly.",
-      deleteBody:
+      editBodyMember:
+        "Refine the wording or change the visibility whenever you need.",
+      deleteBodyGuest:
         "Deleted notes cannot be restored. Guest notes require password verification first.",
+      deleteBodyMember: "Deleted notes cannot be restored.",
       passwordPlaceholder: "Password for this note",
     },
     messages: {
@@ -414,7 +417,7 @@ const copy = {
       quickNote: "감사 남기기",
       openComposer: "글쓰기 열기",
       closeComposer: "글쓰기 닫기",
-      notePlaceholder: "오늘 고마웠던 일을 한 줄씩 적어보세요...",
+      notePlaceholder: "오늘 고마웠던 일을 한 줄씩 적어보세요.",
       noteHint: "한 줄에 하나씩 적어도 좋아요. 세 가지면 충분합니다.",
       authorPlaceholder: "글에 표시될 이름",
       passwordPlaceholder: "수정·삭제용 비밀번호",
@@ -522,10 +525,13 @@ const copy = {
       deleteEyebrow: "글 삭제",
       editTitle: "감사 글 다듬기",
       deleteTitle: "이 글을 보관함에서 삭제할까요?",
-      editBody:
+      editBodyGuest:
         "게스트 글은 작성할 때 사용한 비밀번호가 필요합니다. 로그인 글은 바로 수정할 수 있습니다.",
-      deleteBody:
+      editBodyMember:
+        "내용을 다듬거나 공개 범위를 바꿀 수 있습니다.",
+      deleteBodyGuest:
         "삭제한 글은 되돌릴 수 없습니다. 게스트 글은 먼저 비밀번호를 확인합니다.",
+      deleteBodyMember: "삭제한 글은 되돌릴 수 없습니다.",
       passwordPlaceholder: "이 글의 비밀번호",
     },
     messages: {
@@ -1962,9 +1968,26 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
           formatCalendarDate(profile.nextDisplayNameChangeAt, locale),
         )
       : c.account.nicknameFirstHelp;
+  const normalizedNicknameDraft = nicknameDraft.trim().replace(/\s+/g, " ");
+  const nicknameChangeLocked =
+    profile.mode === "member" &&
+    profile.nextDisplayNameChangeAt !== null;
+  const canSaveNickname =
+    profile.mode === "member" &&
+    !isSavingNickname &&
+    !nicknameChangeLocked &&
+    normalizedNicknameDraft !== profile.name &&
+    normalizedNicknameDraft.length >= MIN_AUTHOR_LENGTH &&
+    normalizedNicknameDraft.length <= MAX_AUTHOR_LENGTH;
   const editingPost = editingId
     ? (posts.find((post) => post.id === editingId) ?? null)
     : null;
+  const deletePost = deleteCandidate
+    ? (posts.find((post) => post.id === deleteCandidate) ?? null)
+    : null;
+  const modalPost = editingPost ?? deletePost;
+  const modalNeedsGuestVerification =
+    modalPost !== null && requiresGuestVerification(modalPost);
   const canEditVisibility =
     profile.mode === "member" &&
     editingPost !== null &&
@@ -1973,6 +1996,13 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     editingPost !== null && requiresGuestVerification(editingPost);
   const shouldShowEditPasswordFirst =
     editingId !== null && editingNeedsPassword && !isEditingUnlocked;
+  const modalBodyText = editingId
+    ? modalNeedsGuestVerification
+      ? c.modal.editBodyGuest
+      : c.modal.editBodyMember
+    : modalNeedsGuestVerification
+      ? c.modal.deleteBodyGuest
+      : c.modal.deleteBodyMember;
   const operatorNoticeText =
     configuredNoticeText || getDailyNoticePrompt(locale, dailyNoticeDateKey);
 
@@ -2114,7 +2144,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                             <button
                               type="button"
                               onClick={saveNickname}
-                              disabled={isSavingNickname}
+                              disabled={!canSaveNickname}
                               className={`shrink-0 rounded-full ink-fill px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-45 ${
                                 nicknameError ? "shake" : ""
                               }`}
@@ -2279,8 +2309,8 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
                         <p className="text-sm text-[var(--muted)]">
                           {locale === "ko"
-                            ? `${profile.name} 이름으로 남겨집니다.`
-                            : `Posting as ${profile.name}.`}
+                            ? `표시 이름: ${profile.name}`
+                            : `Shown as ${profile.name}.`}
                         </p>
                         <div className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--surface)] p-0.5">
                           {(["public", "hidden"] as const).map((visibility) => (
@@ -2738,8 +2768,8 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                   <div className="flex flex-wrap items-center justify-between gap-3 px-1">
                     <p className="text-xs text-[var(--muted)]">
                       {locale === "ko"
-                        ? `${profile.name} 이름으로 남겨집니다.`
-                        : `Posting as ${profile.name}.`}
+                        ? `표시 이름: ${profile.name}`
+                        : `Shown as ${profile.name}.`}
                     </p>
                     <div className="inline-flex w-fit items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--surface-strong)] p-0.5">
                       {(["public", "hidden"] as const).map((visibility) => (
@@ -2792,9 +2822,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
               {editingId ? c.modal.editTitle : c.modal.deleteTitle}
             </h3>
             <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
-              {editingId
-                ? c.modal.editBody
-                : c.modal.deleteBody}
+              {modalBodyText}
             </p>
 
             {editingId && !shouldShowEditPasswordFirst ? (
