@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { toggleHeart } from "@/server/reactions/repository";
 import type { ReactionActor } from "@/server/reactions/policy";
+import { getAuthProfile } from "@/server/auth/session";
 import { badRequest, serviceUnavailable } from "@/server/http/responses";
 
 type ToggleHeartBody = {
@@ -22,11 +23,34 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const result = await toggleHeart(input);
+    let actor = input.actor;
+
+    if (actor.kind === "profile") {
+      const profile = await getAuthProfile();
+
+      if (!profile) {
+        return Response.json(
+          {
+            ok: false,
+            errors: ["Sign in before reacting as a profile."],
+          },
+          { status: 401 },
+        );
+      }
+
+      actor = {
+        kind: "profile",
+        profileId: profile.id,
+      };
+    }
+
+    const result = await toggleHeart({
+      entryId: input.entryId,
+      actor,
+    });
 
     return Response.json(result);
   } catch (error) {
     return serviceUnavailable(error);
   }
 }
-

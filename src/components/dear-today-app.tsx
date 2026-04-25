@@ -216,6 +216,8 @@ const copy = {
       passwordMismatch: "That password is not right. Check the password you used for this note.",
       verifyFailed: "This note could not be changed. Use the password set when it was written.",
       databaseFailed: "We could not reach the database. Please try again.",
+      guestRateLimited:
+        "Guest notes are being written too quickly. Please wait a little before writing again.",
       accessFailed: "We could not start account access yet. Please try again.",
       nicknameLength: "Choose a nickname between 2 and 20 characters.",
       nicknameUpdated: "Your posting nickname has been updated.",
@@ -403,6 +405,8 @@ const copy = {
       passwordMismatch: "비밀번호가 맞지 않아요. 이 글을 쓸 때 정한 비밀번호를 확인해주세요.",
       verifyFailed: "이 글을 변경할 수 없어요. 작성할 때 정한 비밀번호로 다시 시도해주세요.",
       databaseFailed: "데이터베이스에 연결하지 못했습니다. 다시 시도해주세요.",
+      guestRateLimited:
+        "게스트 글이 너무 빠르게 작성되고 있어요. 잠시 후 다시 남겨주세요.",
       accessFailed: "계정 접근을 시작하지 못했습니다. 다시 시도해주세요.",
       nicknameLength: "별명은 2자 이상 20자 이하로 입력해주세요.",
       nicknameUpdated: "작성 별명이 업데이트되었습니다.",
@@ -1098,8 +1102,15 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       return;
     }
 
-    persistStorage(STORAGE_KEYS.posts, posts);
-  }, [hasHydrated, posts]);
+    persistStorage(
+      STORAGE_KEYS.posts,
+      posts.filter(
+        (post) =>
+          !profileOwnedIds.includes(post.id) &&
+          (post.visibility ?? "public") !== "hidden",
+      ),
+    );
+  }, [hasHydrated, posts, profileOwnedIds]);
 
   useEffect(() => {
     if (!hasHydrated) {
@@ -1309,6 +1320,16 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       if (response.ok && payload.ok && payload.entryId) {
         entryId = payload.entryId;
         setApiStatus("ready");
+      } else if (response.status === 429) {
+        setIsSubmitting(false);
+        setSuccessMessage(c.messages.guestRateLimited);
+        setTimeout(() => setSuccessMessage(""), 2600);
+        return;
+      } else if (response.status >= 400 && response.status < 500) {
+        setIsSubmitting(false);
+        setSuccessMessage(payload.errors?.[0] ?? c.messages.databaseFailed);
+        setTimeout(() => setSuccessMessage(""), 2600);
+        return;
       } else {
         setApiStatus("fallback");
       }
@@ -1735,6 +1756,9 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     };
 
     setProfile(guestProfile);
+    setPosts((current) =>
+      current.filter((post) => !profileOwnedIds.includes(post.id)),
+    );
     setProfileOwnedIds([]);
     setNicknameDraft(guestProfile.name);
     setForm((current) => ({

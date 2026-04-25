@@ -8,6 +8,11 @@ import {
 import { getAuthProfile } from "@/server/auth/session";
 import type { CreateEntryInput } from "@/server/entries/types";
 import { badRequest, ok, serviceUnavailable } from "@/server/http/responses";
+import { createGuestRateLimitKey } from "@/server/moderation/actor-key";
+import {
+  canCreateGuestEntry,
+  recordGuestEntryCreated,
+} from "@/server/moderation/repository";
 
 export async function GET(request: NextRequest) {
   try {
@@ -70,6 +75,25 @@ export async function POST(request: NextRequest) {
   try {
     const profile = await getAuthProfile();
 
+    const guestRateLimitKey =
+      input.owner.kind === "guest" ? createGuestRateLimitKey(request) : null;
+
+    if (guestRateLimitKey) {
+      const canCreate = await canCreateGuestEntry(guestRateLimitKey);
+
+      if (!canCreate) {
+        return Response.json(
+          {
+            ok: false,
+            errors: [
+              "Too many guest notes. Please wait a little before writing again.",
+            ],
+          },
+          { status: 429 },
+        );
+      }
+    }
+
     if (input.owner.kind === "profile") {
       if (!profile) {
         return Response.json(
@@ -92,6 +116,13 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await createEntry(input);
+
+    if (result.ok && guestRateLimitKey) {
+      await recordGuestEntryCreated({
+        actorKey: guestRateLimitKey,
+        entryId: result.entryId,
+      });
+    }
 
     return Response.json(result, { status: result.ok ? 201 : 400 });
   } catch (error) {

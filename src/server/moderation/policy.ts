@@ -6,6 +6,7 @@ export const GUEST_ENTRY_RATE_LIMIT = {
 export const MAX_PUBLIC_BODY_PREVIEW_LENGTH = 220;
 
 export type ModerationSignal =
+  | "guest_entry_created"
   | "rate_limited"
   | "hidden_by_admin"
   | "removed_by_owner"
@@ -24,4 +25,3 @@ export function createPublicPreview(body: string) {
 
   return `${normalized.slice(0, MAX_PUBLIC_BODY_PREVIEW_LENGTH).trimEnd()}...`;
 }
-
