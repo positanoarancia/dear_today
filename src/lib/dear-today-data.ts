@@ -11,6 +11,8 @@ export type Profile =
       name: string;
       provider: "google";
       avatarUrl?: string | null;
+      displayNameChangedAt?: string | null;
+      nextDisplayNameChangeAt?: string | null;
     };
 
 export type Post = {

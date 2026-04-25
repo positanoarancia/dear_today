@@ -19,6 +19,7 @@ const STORAGE_KEYS = {
   owned: "dear-today-owned-posts",
   deviceId: "dear-today-device-id",
   locale: "dear-today-locale",
+  theme: "dear-today-theme",
 };
 
 const POST_PREVIEW_LENGTH = 80;
@@ -26,6 +27,7 @@ const POST_PREVIEW_LENGTH = 80;
 type Locale = "en" | "ko";
 type FeedSort = "latest" | "today";
 type MyPostsFilter = "all" | "public" | "hidden";
+type ThemeMode = "light" | "evening";
 
 const copy = {
   en: {
@@ -66,6 +68,8 @@ const copy = {
       signOut: "Sign out",
       publicNote: "Public",
       privateNote: "Only me",
+      themeLight: "Day",
+      themeEvening: "Night",
     },
     home: {
       eyebrow: "Public gratitude journal",
@@ -179,6 +183,9 @@ const copy = {
       nicknameTitle: "Posting nickname",
       nicknameBody:
         "This is the name shown on future gratitude notes. It does not change your Google account name.",
+      nicknameFirstHelp:
+        "You can set this freely once. After that, it can be changed once every 7 days.",
+      nicknameNextChange: (date: string) => `Next nickname change: ${date}.`,
       nicknamePlaceholder: "Your quiet pen name",
       saveNickname: "Save nickname",
       saving: "Saving...",
@@ -204,6 +211,8 @@ const copy = {
       accessFailed: "We could not start account access yet. Please try again.",
       nicknameLength: "Choose a nickname between 2 and 40 characters.",
       nicknameUpdated: "Your posting nickname has been updated.",
+      nicknameLimited: (date: string) =>
+        `You can change your nickname again on ${date}.`,
       nicknameFailed: "We could not update your nickname yet. Please try again.",
     },
   },
@@ -245,6 +254,8 @@ const copy = {
       signOut: "로그아웃",
       publicNote: "공개",
       privateNote: "나만 보기",
+      themeLight: "낮",
+      themeEvening: "밤",
     },
     home: {
       eyebrow: "공개 감사 저널",
@@ -356,6 +367,9 @@ const copy = {
       nicknameTitle: "작성자 이름",
       nicknameBody:
         "앞으로 쓰는 글에 표시될 이름입니다. Google 계정 이름은 바뀌지 않습니다.",
+      nicknameFirstHelp:
+        "처음 설정은 자유롭게 할 수 있고, 이후에는 7일에 한 번 바꿀 수 있어요.",
+      nicknameNextChange: (date: string) => `다음 별명 변경 가능: ${date}`,
       nicknamePlaceholder: "예: 하루",
       saveNickname: "저장하기",
       saving: "저장 중...",
@@ -381,6 +395,8 @@ const copy = {
       accessFailed: "계정 접근을 시작하지 못했습니다. 다시 시도해주세요.",
       nicknameLength: "별명은 2자 이상 40자 이하로 입력해주세요.",
       nicknameUpdated: "작성 별명이 업데이트되었습니다.",
+      nicknameLimited: (date: string) =>
+        `별명은 ${date} 이후 다시 바꿀 수 있어요.`,
       nicknameFailed: "별명을 업데이트하지 못했습니다. 다시 시도해주세요.",
     },
   },
@@ -409,6 +425,8 @@ type AuthProfilePayload = {
   provider: "google";
   displayName: string;
   avatarUrl?: string | null;
+  displayNameChangedAt?: string | null;
+  nextDisplayNameChangeAt?: string | null;
 };
 
 const navItems: { href: string; labelKey: keyof typeof copy.en.nav; view: View }[] = [
@@ -470,6 +488,13 @@ function formatRelative(iso: string, locale: Locale) {
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+function formatCalendarDate(iso: string, locale: Locale) {
+  return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en", {
+    month: "long",
+    day: "numeric",
   }).format(new Date(iso));
 }
 
@@ -561,6 +586,8 @@ function mapAuthProfile(profile: AuthProfilePayload): Profile {
     provider: "google",
     name: profile.displayName,
     avatarUrl: profile.avatarUrl ?? null,
+    displayNameChangedAt: profile.displayNameChangedAt ?? null,
+    nextDisplayNameChangeAt: profile.nextDisplayNameChangeAt ?? null,
   };
 }
 
@@ -595,6 +622,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const isWrite = initialView === "write";
   const isMyPosts = initialView === "my-posts";
   const [locale, setLocale] = useState<Locale>("en");
+  const [theme, setTheme] = useState<ThemeMode>("light");
   const [posts, setPosts] = useState<Post[]>(seedPosts);
   const [profile, setProfile] = useState<Profile>(defaultProfile);
   const [heartedIds, setHeartedIds] = useState<string[]>([]);
@@ -651,6 +679,12 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
         ? "ko"
         : "en";
       const nextLocale = storedLocale ?? browserLocale;
+      const storedTheme = readStorage<ThemeMode | null>(STORAGE_KEYS.theme, null);
+      const systemTheme: ThemeMode = window.matchMedia("(prefers-color-scheme: dark)")
+        .matches
+        ? "evening"
+        : "light";
+      const nextTheme = storedTheme ?? systemTheme;
       const storedPosts = readStorage<Post[]>(STORAGE_KEYS.posts, seedPosts);
       const storedProfile = readStorage<Profile>(
         STORAGE_KEYS.profile,
@@ -675,6 +709,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       setHeartedIds(storedHearts);
       setOwnedIds(storedOwned);
       setLocale(nextLocale);
+      setTheme(nextTheme);
       setDeviceId(nextDeviceId);
       setHasHydrated(true);
       setSortReferenceTime(Date.now());
@@ -730,6 +765,15 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     persistStorage(STORAGE_KEYS.locale, locale);
     document.documentElement.lang = locale === "ko" ? "ko" : "en";
   }, [hasHydrated, locale]);
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return;
+    }
+
+    persistStorage(STORAGE_KEYS.theme, theme);
+    document.documentElement.dataset.theme = theme;
+  }, [hasHydrated, theme]);
 
   useEffect(() => {
     if (!deviceId || !hasHydrated) {
@@ -1414,10 +1458,23 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       const payload = (await response.json()) as {
         ok: boolean;
         profile?: AuthProfilePayload;
+        nextDisplayNameChangeAt?: string;
         errors?: string[];
       };
 
       if (!response.ok || !payload.ok || !payload.profile) {
+        if (response.status === 429 && payload.nextDisplayNameChangeAt) {
+          if (!options?.silent) {
+            setSuccessMessage(
+              c.messages.nicknameLimited(
+                formatCalendarDate(payload.nextDisplayNameChangeAt, locale),
+              ),
+            );
+            setTimeout(() => setSuccessMessage(""), 3200);
+          }
+          return false;
+        }
+
         throw new Error(payload.errors?.[0] ?? "Nickname update failed");
       }
 
@@ -1496,10 +1553,17 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     setSortReferenceTime(Date.now());
   };
 
+  const nicknameHelpText =
+    profile.mode === "member" && profile.nextDisplayNameChangeAt
+      ? c.account.nicknameNextChange(
+          formatCalendarDate(profile.nextDisplayNameChangeAt, locale),
+        )
+      : c.account.nicknameFirstHelp;
+
   return (
     <div className="min-h-screen pb-8 text-[var(--foreground)]">
       <div className="mx-auto flex min-h-screen w-full max-w-[1280px] flex-col px-4 pb-10 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-6 md:pt-6 lg:px-8">
-        <header className="soft-rise sticky top-0 z-30 bg-[rgba(251,247,242,0.78)] py-3 backdrop-blur md:top-2 md:py-4">
+        <header className="soft-rise sticky top-0 z-30 bg-[color-mix(in_srgb,var(--background)_78%,transparent)] py-3 backdrop-blur md:top-2 md:py-4">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             <div className="min-w-0">
               <p className="eyebrow text-[10px] text-[var(--muted)] md:text-[11px]">
@@ -1514,7 +1578,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
               <button
                 type="button"
                 onClick={openComposerFromHeader}
-                className="shrink-0 whitespace-nowrap rounded-full bg-[var(--foreground)] px-4 py-2.5 text-sm font-medium text-white shadow-[0_12px_28px_rgba(45,36,31,0.12)] hover:translate-y-[-1px]"
+                className="shrink-0 whitespace-nowrap rounded-full bg-[var(--foreground)] px-4 py-2.5 text-sm font-medium text-[var(--on-foreground)] shadow-[0_12px_28px_rgba(45,36,31,0.12)] hover:translate-y-[-1px]"
               >
                 {c.home.writeCta}
               </button>
@@ -1525,7 +1589,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     event.stopPropagation();
                     setIsProfileMenuOpen((current) => !current);
                   }}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-white/82 p-0 text-[var(--foreground)] shadow-[0_10px_24px_rgba(45,36,31,0.08)] ring-1 ring-[var(--line)]"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-strong)] p-0 text-[var(--foreground)] shadow-[0_10px_24px_rgba(45,36,31,0.08)] ring-1 ring-[var(--line)]"
                   aria-label={c.profile.menuLabel}
                 >
                   {profile.mode === "member" && profile.avatarUrl ? (
@@ -1555,8 +1619,8 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                             href={item.href}
                             className={`rounded-full px-3 py-2 text-center text-xs ${
                               isActive
-                                ? "bg-[var(--foreground)] text-white"
-                                : "bg-[var(--surface)] text-[var(--muted)] hover:bg-white"
+                                ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
+                                : "bg-[var(--surface)] text-[var(--muted)] hover:bg-[var(--surface-strong)]"
                             }`}
                           >
                             {c.nav[item.labelKey]}
@@ -1566,7 +1630,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--foreground)] text-sm font-semibold text-white">
+                      <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-[var(--foreground)] text-sm font-semibold text-[var(--on-foreground)]">
                         {profile.mode === "member" && profile.avatarUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -1590,6 +1654,25 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       </div>
                     </div>
 
+                    <div className="mt-4 grid grid-cols-2 gap-2 rounded-full bg-[var(--surface)] p-1">
+                      {(["light", "evening"] as ThemeMode[]).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setTheme(mode)}
+                          className={`rounded-full px-3 py-2 text-xs ${
+                            theme === mode
+                              ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
+                              : "text-[var(--muted)] hover:bg-[var(--surface-strong)]"
+                          }`}
+                        >
+                          {mode === "light"
+                            ? c.common.themeLight
+                            : c.common.themeEvening}
+                        </button>
+                      ))}
+                    </div>
+
                     {profile.mode === "member" ? (
                       <div className="mt-4">
                         <label className="text-xs font-medium text-[var(--muted)]">
@@ -1605,14 +1688,14 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                               type="button"
                               onClick={saveNickname}
                               disabled={isSavingNickname}
-                              className="shrink-0 rounded-full bg-[var(--foreground)] px-3 py-2 text-xs text-white disabled:cursor-not-allowed disabled:opacity-45"
+                              className="shrink-0 rounded-full bg-[var(--foreground)] px-3 py-2 text-xs text-[var(--on-foreground)] disabled:cursor-not-allowed disabled:opacity-45"
                             >
                               {isSavingNickname ? c.account.saving : c.account.saveNickname}
                             </button>
                           </div>
                         </label>
                         <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
-                          {c.profile.nicknameHelp}
+                          {nicknameHelpText}
                         </p>
                         <div className="mt-3 flex justify-end">
                           <button
@@ -1628,7 +1711,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       <button
                         type="button"
                         onClick={enableDemoLogin}
-                        className="mt-4 w-full rounded-full bg-[var(--foreground)] px-4 py-3 text-sm text-white"
+                        className="mt-4 w-full rounded-full bg-[var(--foreground)] px-4 py-3 text-sm text-[var(--on-foreground)]"
                       >
                         {c.common.continueGoogle}
                       </button>
@@ -1637,7 +1720,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     <button
                       type="button"
                       onClick={() => setLocale(locale === "en" ? "ko" : "en")}
-                      className="mt-3 w-full rounded-full border border-[var(--line)] px-4 py-2 text-xs text-[var(--muted)] hover:bg-white"
+                      className="mt-3 w-full rounded-full border border-[var(--line)] px-4 py-2 text-xs text-[var(--muted)] hover:bg-[var(--surface)]"
                       aria-label={locale === "en" ? "한국어로 보기" : "View in English"}
                     >
                       {locale === "en" ? "한국어로 보기" : "View in English"}
@@ -1709,7 +1792,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                               }
                               className={`rounded-full px-3 py-2 text-sm ${
                                 form.visibility === visibility
-                                  ? "bg-[var(--foreground)] text-white"
+                                  ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
                                   : "text-[var(--muted)] hover:bg-white"
                               }`}
                             >
@@ -1751,7 +1834,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       type="button"
                       onClick={handleSubmit}
                       disabled={!canSubmit || isSubmitting}
-                      className="rounded-full bg-[var(--foreground)] px-5 py-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-45"
+                      className="rounded-full bg-[var(--foreground)] px-5 py-3 text-sm font-medium text-[var(--on-foreground)] disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       {isSubmitting ? "Adding..." : "Add to today's warmth"}
                     </button>
@@ -1812,7 +1895,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         onClick={() => setFeedSort(sort)}
                         className={`rounded-full px-4 py-2 text-xs ${
                           feedSort === sort
-                            ? "bg-[var(--foreground)] text-white"
+                            ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
                             : "bg-white/76 text-[var(--muted)] hover:bg-white"
                         }`}
                       >
@@ -1963,7 +2046,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         onClick={() => setMyPostsFilter(filter)}
                         className={`rounded-full px-3 py-2 text-xs ${
                           myPostsFilter === filter
-                            ? "bg-[var(--foreground)] text-white"
+                            ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
                             : "text-[var(--muted)] hover:bg-white"
                         }`}
                       >
@@ -2036,7 +2119,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     <button
                       type="button"
                       onClick={enableDemoLogin}
-                      className="rounded-full bg-[var(--foreground)] px-4 py-2 text-sm text-white"
+                      className="rounded-full bg-[var(--foreground)] px-4 py-2 text-sm text-[var(--on-foreground)]"
                     >
                       {c.common.continueGoogle}
                     </button>
@@ -2126,7 +2209,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         }
                         className={`rounded-full px-3 py-2 text-sm ${
                           form.visibility === visibility
-                            ? "bg-[var(--foreground)] text-white"
+                            ? "bg-[var(--foreground)] text-[var(--on-foreground)]"
                             : "text-[var(--muted)] hover:bg-white"
                         }`}
                       >
@@ -2151,7 +2234,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                   type="button"
                   onClick={handleSubmit}
                   disabled={!canSubmit || isSubmitting}
-                  className="rounded-full bg-[var(--foreground)] px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:opacity-45"
+                  className="rounded-full bg-[var(--foreground)] px-4 py-2 text-sm text-[var(--on-foreground)] disabled:cursor-not-allowed disabled:opacity-45"
                 >
                   {isSubmitting ? c.home.adding : c.home.addNote}
                 </button>
@@ -2238,7 +2321,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                 <button
                   type="button"
                   onClick={saveEdit}
-                  className={`rounded-full bg-[var(--foreground)] px-4 py-3 text-sm text-white ${
+                  className={`rounded-full bg-[var(--foreground)] px-4 py-3 text-sm text-[var(--on-foreground)] ${
                     verificationError ? "shake" : ""
                   }`}
                 >
@@ -2248,7 +2331,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                 <button
                   type="button"
                   onClick={confirmDelete}
-                  className={`rounded-full bg-[var(--foreground)] px-4 py-3 text-sm text-white ${
+                  className={`rounded-full bg-[var(--foreground)] px-4 py-3 text-sm text-[var(--on-foreground)] ${
                     verificationError ? "shake" : ""
                   }`}
                 >

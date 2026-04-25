@@ -16,6 +16,9 @@ export const profiles = pgTable(
     provider: text("provider").notNull(),
     providerAccountId: text("provider_account_id").notNull(),
     displayName: text("display_name").notNull(),
+    displayNameChangedAt: timestamp("display_name_changed_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -118,4 +121,3 @@ export const moderationEvents = pgTable(
   },
   (table) => [index("moderation_events_entry_idx").on(table.entryId)],
 );
-

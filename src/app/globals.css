@@ -6,6 +6,7 @@
   --background-wash-start: rgba(255, 255, 255, 0.4);
   --background-wash-end: rgba(247, 241, 232, 0.96);
   --foreground: #2d241f;
+  --on-foreground: #fffdf8;
   --surface: #fbf7f2;
   --surface-strong: #fffdf8;
   --line: rgba(71, 50, 39, 0.14);
@@ -13,6 +14,22 @@
   --accent: #b86d52;
   --accent-strong: #8f523d;
   --sage: #72816d;
+}
+
+:root[data-theme="evening"] {
+  --background: #211c18;
+  --background-highlight: rgba(187, 122, 85, 0.16);
+  --background-wash-start: rgba(52, 41, 34, 0.72);
+  --background-wash-end: rgba(33, 28, 24, 0.98);
+  --foreground: #f2e7dc;
+  --on-foreground: #241e1a;
+  --surface: #2a231f;
+  --surface-strong: #302822;
+  --line: rgba(242, 231, 220, 0.13);
+  --muted: #c1afa2;
+  --accent: #d8926f;
+  --accent-strong: #efb28d;
+  --sage: #a7b095;
 }
 
 @theme inline {
@@ -73,6 +90,11 @@ textarea {
   background: color-mix(in srgb, var(--surface) 92%, white 8%);
   border: 1px solid var(--line);
   box-shadow: 0 18px 40px rgba(93, 67, 52, 0.06);
+}
+
+:root[data-theme="evening"] .paper-panel {
+  background: color-mix(in srgb, var(--surface) 88%, black 12%);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
 }
 
 .feed-refresh-banner {

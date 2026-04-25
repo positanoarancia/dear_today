@@ -63,12 +63,23 @@ export async function PATCH(request: Request) {
       );
     }
 
-    const updatedProfile = await updateProfileDisplayName({
+    const updateResult = await updateProfileDisplayName({
       profileId: profile.id,
       displayName,
     });
 
-    if (!updatedProfile) {
+    if (!updateResult.ok && updateResult.reason === "cooldown") {
+      return Response.json(
+        {
+          ok: false,
+          errors: ["Nickname can only be changed once every 7 days."],
+          nextDisplayNameChangeAt: updateResult.nextDisplayNameChangeAt,
+        },
+        { status: 429 },
+      );
+    }
+
+    if (!updateResult.ok) {
       return Response.json(
         {
           ok: false,
@@ -80,7 +91,7 @@ export async function PATCH(request: Request) {
 
     return ok({
       ok: true,
-      profile: updatedProfile,
+      profile: updateResult.profile,
     });
   } catch (error) {
     return serviceUnavailable(error);
