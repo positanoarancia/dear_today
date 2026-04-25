@@ -746,14 +746,10 @@ function getFeedCardSizeClass(body: string) {
   const paragraphCount = splitNoteParagraphs(body).length;
 
   if (body.length > 260 || paragraphCount >= 4) {
-    return "min-h-[250px]";
+    return "min-h-[238px]";
   }
 
-  if (body.length > 130 || paragraphCount >= 2) {
-    return "min-h-[235px]";
-  }
-
-  return "min-h-[225px]";
+  return "min-h-[224px]";
 }
 
 function mapApiEntryToPost(entry: ApiEntry): Post {
@@ -1485,28 +1481,6 @@ export function DearTodayApp({
       ),
     [feedSort, posts, sortReferenceTime],
   );
-  const visiblePostGroups = useMemo(() => {
-    return visiblePosts.reduce<Array<{ key: string; label: string; posts: Post[] }>>(
-      (groups, post) => {
-        const key = getLocalDateKey(new Date(post.createdAt));
-        const currentGroup = groups.at(-1);
-
-        if (currentGroup?.key === key) {
-          currentGroup.posts.push(post);
-          return groups;
-        }
-
-        groups.push({
-          key,
-          label: formatFeedDateDivider(post.createdAt, locale, sortReferenceTime),
-          posts: [post],
-        });
-
-        return groups;
-      },
-      [],
-    );
-  }, [locale, sortReferenceTime, visiblePosts]);
   const canUsePersonalArchive = profile.mode === "member";
   const archivedPosts = useMemo(() => {
     if (!canUsePersonalArchive) {
@@ -2656,29 +2630,36 @@ export function DearTodayApp({
                   </p>
                 ) : null}
 
-                <div className="flex flex-col gap-5">
-                  {visiblePostGroups.map((group) => (
-                    <section key={group.key} className="feed-date-section">
-                      <div className="feed-date-divider">
-                        <span>{group.label}</span>
-                      </div>
+                <div className="grid card-grid gap-4">
+                  {visiblePosts.map((post, index) => {
+                    const expanded = expandedIds.includes(post.id);
+                    const canExpand = expanded || collapsibleIds.includes(post.id);
+                    const isOwnProfilePost =
+                      profile.mode === "member" && profileOwnedIds.includes(post.id);
+                    const currentDateKey = getLocalDateKey(new Date(post.createdAt));
+                    const previousPost = visiblePosts[index - 1];
+                    const previousDateKey = previousPost
+                      ? getLocalDateKey(new Date(previousPost.createdAt))
+                      : null;
+                    const shouldShowDateLabel =
+                      index === 0 || currentDateKey !== previousDateKey;
 
-                      <div className="grid card-grid gap-4">
-                        {group.posts.map((post) => {
-                          const expanded = expandedIds.includes(post.id);
-                          const canExpand =
-                            expanded || collapsibleIds.includes(post.id);
-                          const isOwnProfilePost =
-                            profile.mode === "member" &&
-                            profileOwnedIds.includes(post.id);
-
-                          return (
+                    return (
                         <article
                           key={post.id}
                           className={`paper-panel feed-enter flex flex-col rounded-[28px] p-5 ${
                             getFeedCardSizeClass(post.body)
                           } ${isOwnProfilePost ? "own-note-card" : ""}`}
                         >
+                          {shouldShowDateLabel ? (
+                            <div className="feed-date-label">
+                              {formatFeedDateDivider(
+                                post.createdAt,
+                                locale,
+                                sortReferenceTime,
+                              )}
+                            </div>
+                          ) : null}
                           <div className="flex min-w-0 items-start justify-between gap-3 text-sm text-[var(--muted)]">
                             <span
                               className="min-w-0 flex-1 truncate"
@@ -2776,11 +2757,8 @@ export function DearTodayApp({
                             </div>
                           </div>
                         </article>
-                          );
-                        })}
-                      </div>
-                    </section>
-                  ))}
+                    );
+                  })}
                 </div>
                 <div ref={feedLoadMoreRef} className="min-h-12">
                   {isLoadingMoreFeed ? (

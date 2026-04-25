@@ -187,37 +187,19 @@ select {
   box-shadow: 0 12px 32px rgba(93, 67, 52, 0.05);
 }
 
-.feed-date-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.feed-date-divider {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  margin: 0;
-  color: color-mix(in srgb, var(--muted) 84%, var(--foreground) 16%);
-  font-family: var(--font-sans), sans-serif;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.feed-date-divider::after {
-  content: "";
-  height: 1px;
-  flex: 1;
-  background: linear-gradient(90deg, var(--line), transparent);
-}
-
-.feed-date-divider span {
-  border: 1px solid var(--line);
+.feed-date-label {
+  margin: -0.1rem 0 0.65rem;
+  width: fit-content;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 72%, transparent);
-  padding: 0.32rem 0.68rem;
+  background: color-mix(in srgb, var(--surface) 78%, transparent);
+  color: color-mix(in srgb, var(--muted) 82%, var(--foreground) 18%);
+  font-family: var(--font-sans), sans-serif;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  padding: 0.36rem 0.56rem;
+  text-transform: uppercase;
 }
 
 .feed-loading-note {
@@ -294,7 +276,7 @@ select {
 .note-preview {
   position: relative;
   display: block;
-  max-height: 12.4rem;
+  max-height: 10.6rem;
   overflow: hidden;
   overflow-wrap: anywhere;
   word-break: break-word;
