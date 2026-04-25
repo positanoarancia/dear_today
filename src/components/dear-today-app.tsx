@@ -655,6 +655,8 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const [hasHydrated, setHasHydrated] = useState(false);
   const [nicknameDraft, setNicknameDraft] = useState(defaultProfile.name);
   const [isSavingNickname, setIsSavingNickname] = useState(false);
+  const [nicknameFeedback, setNicknameFeedback] = useState("");
+  const [nicknameError, setNicknameError] = useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [feedSort, setFeedSort] = useState<FeedSort>("latest");
@@ -1443,14 +1445,21 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
     if (nextName.length < 2 || nextName.length > 40) {
       if (!options?.silent) {
-        setSuccessMessage(c.messages.nicknameLength);
-        setTimeout(() => setSuccessMessage(""), 2600);
+        showNicknameFeedback(c.messages.nicknameLength, true);
       }
       return false;
     }
 
     if (nextName === profile.name) {
       setNicknameDraft(nextName);
+      if (!options?.silent && profile.nextDisplayNameChangeAt) {
+        showNicknameFeedback(
+          c.messages.nicknameLimited(
+            formatCalendarDate(profile.nextDisplayNameChangeAt, locale),
+          ),
+          true,
+        );
+      }
       return true;
     }
 
@@ -1474,12 +1483,12 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       if (!response.ok || !payload.ok || !payload.profile) {
         if (response.status === 429 && payload.nextDisplayNameChangeAt) {
           if (!options?.silent) {
-            setSuccessMessage(
+            showNicknameFeedback(
               c.messages.nicknameLimited(
                 formatCalendarDate(payload.nextDisplayNameChangeAt, locale),
               ),
+              true,
             );
-            setTimeout(() => setSuccessMessage(""), 3200);
           }
           return false;
         }
@@ -1498,14 +1507,12 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
         author: nextProfile.name,
       }));
       if (!options?.silent) {
-        setSuccessMessage(c.messages.nicknameUpdated);
-        setTimeout(() => setSuccessMessage(""), 2600);
+        showNicknameFeedback(c.messages.nicknameUpdated, false);
       }
       return true;
     } catch {
       if (!options?.silent) {
-        setSuccessMessage(c.messages.nicknameFailed);
-        setTimeout(() => setSuccessMessage(""), 2600);
+        showNicknameFeedback(c.messages.nicknameFailed, true);
       }
       return false;
     } finally {
@@ -1519,6 +1526,18 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     }
 
     await updateNickname(nicknameDraft);
+  };
+
+  const showNicknameFeedback = (message: string, isError: boolean) => {
+    setNicknameFeedback(message);
+    setNicknameError(false);
+    if (isError) {
+      window.requestAnimationFrame(() => setNicknameError(true));
+    }
+    setTimeout(() => {
+      setNicknameFeedback("");
+      setNicknameError(false);
+    }, isError ? 3400 : 2400);
   };
 
   const signOut = async () => {
@@ -1581,7 +1600,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   return (
     <div className="min-h-screen pb-8 text-[var(--foreground)]">
       <div className="mx-auto flex min-h-screen w-full max-w-[1280px] flex-col px-4 pb-10 pt-[calc(env(safe-area-inset-top)+1rem)] sm:px-6 md:pt-6 lg:px-8">
-        <header className="soft-rise sticky top-0 z-30 bg-[color-mix(in_srgb,var(--background)_78%,transparent)] py-3 backdrop-blur md:top-2 md:py-4">
+        <header className="app-header soft-rise sticky top-0 z-30 -mx-4 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 md:top-2 md:py-4 lg:-mx-8 lg:px-8">
           <div className="flex items-center justify-between gap-2 sm:gap-4">
             <div className="min-w-0">
               <p className="eyebrow text-[10px] text-[var(--muted)] md:text-[11px]">
@@ -1679,15 +1698,25 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                           <div className="mt-2 flex items-center gap-2">
                             <input
                               value={nicknameDraft}
-                              onChange={(event) => setNicknameDraft(event.target.value)}
-                              className="min-w-0 flex-1 rounded-full border border-[var(--line)] bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+                              onChange={(event) => {
+                                setNicknameDraft(event.target.value);
+                                setNicknameFeedback("");
+                                setNicknameError(false);
+                              }}
+                              className={`min-w-0 flex-1 rounded-full border bg-[var(--surface)] px-4 py-2.5 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)] ${
+                                nicknameError
+                                  ? "shake border-[var(--accent)] shadow-[0_0_0_4px_rgba(184,109,82,0.12)]"
+                                  : "border-[var(--line)]"
+                              }`}
                               placeholder={c.account.nicknamePlaceholder}
                             />
                             <button
                               type="button"
                               onClick={saveNickname}
                               disabled={isSavingNickname}
-                              className="shrink-0 rounded-full ink-fill px-3 py-2 text-xs  disabled:cursor-not-allowed disabled:opacity-45"
+                              className={`shrink-0 rounded-full ink-fill px-3 py-2 text-xs disabled:cursor-not-allowed disabled:opacity-45 ${
+                                nicknameError ? "shake" : ""
+                              }`}
                             >
                               {isSavingNickname ? c.account.saving : c.account.saveNickname}
                             </button>
@@ -1696,6 +1725,19 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         <p className="mt-2 text-xs leading-5 text-[var(--muted)]">
                           {nicknameHelpText}
                         </p>
+                        {nicknameFeedback ? (
+                          <p
+                            className={`mt-2 rounded-2xl px-3 py-2 text-xs leading-5 ${
+                              nicknameError
+                                ? "bg-[rgba(184,109,82,0.12)] text-[var(--accent-strong)]"
+                                : "bg-[rgba(114,129,109,0.12)] text-[var(--sage)]"
+                            }`}
+                            role={nicknameError ? "alert" : "status"}
+                            aria-live="polite"
+                          >
+                            {nicknameFeedback}
+                          </p>
+                        ) : null}
                         <div className="mt-3 flex justify-end">
                           <button
                             type="button"
@@ -1761,7 +1803,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                   No title. No performance. Just one small note about what held you up.
                 </p>
 
-                <div className="mt-5 rounded-[26px] border border-[var(--line)] bg-white/72 p-4 sm:p-5">
+                <div className="soft-surface mt-5 rounded-[26px] border border-[var(--line)] p-4 sm:p-5">
                   <label className="text-sm text-[var(--muted)]" htmlFor="gratitude-body">
                     Gratitude note
                   </label>
@@ -1801,7 +1843,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     <label className="text-sm text-[var(--muted)]">
                       {profile.mode === "member" ? "Visibility" : "Guest password"}
                       {profile.mode === "member" ? (
-                        <div className="mt-2 inline-flex w-fit rounded-full bg-white/70 p-1">
+                        <div className="mt-2 inline-flex w-fit rounded-full soft-control p-1">
                           {(["public", "hidden"] as const).map((visibility) => (
                             <button
                               key={visibility}
@@ -1812,7 +1854,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                               className={`rounded-full px-3 py-2 text-sm ${
                                 form.visibility === visibility
                                   ? "ink-fill"
-                                  : "text-[var(--muted)] hover:bg-white"
+                                  : "text-[var(--muted)] hover:bg-[var(--control-hover)]"
                               }`}
                             >
                               {visibility === "public"
@@ -1867,14 +1909,14 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                           {canUsePersonalArchive ? (
                             <Link
                               href="/my-posts"
-                              className="rounded-full bg-white/75 px-3 py-2 text-xs text-[var(--foreground)]"
+                              className="soft-control rounded-full px-3 py-2 text-xs text-[var(--foreground)]"
                             >
                               View in My Posts
                             </Link>
                           ) : null}
                           <Link
                             href="/"
-                            className="rounded-full bg-white/75 px-3 py-2 text-xs text-[var(--foreground)]"
+                            className="soft-control rounded-full px-3 py-2 text-xs text-[var(--foreground)]"
                           >
                             Read the feed
                           </Link>
@@ -1906,7 +1948,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
             <section>
               <div className="flex flex-col gap-3" id="latest-feed">
                 <div className="flex justify-end">
-                  <div className="flex items-center gap-2 rounded-full bg-white/40 p-1">
+                  <div className="flex items-center gap-2">
                     {(["latest", "today"] as const).map((sort) => (
                       <button
                         key={sort}
@@ -1915,7 +1957,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         className={`rounded-full px-4 py-2 text-xs ${
                           feedSort === sort
                             ? "ink-fill"
-                            : "bg-white/76 text-[var(--muted)] hover:bg-white"
+                            : "soft-control text-[var(--muted)]"
                         }`}
                       >
                         {sort === "latest" ? c.home.sortLatest : c.home.sortToday}
@@ -1932,7 +1974,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     className="feed-refresh-banner flex items-center justify-between gap-3 rounded-[22px] px-4 py-3 text-left text-sm"
                   >
                     <span>{c.home.newNotes(pendingPosts.length)}</span>
-                    <span className="rounded-full bg-white/70 px-3 py-1 text-xs">
+                    <span className="soft-control rounded-full px-3 py-1 text-xs">
                       {c.home.showNewNotes}
                     </span>
                   </button>
@@ -1986,7 +2028,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                             className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm ${
                               heartedIds.includes(post.id)
                                 ? "bg-[rgba(184,109,82,0.14)] text-[var(--accent-strong)]"
-                                : "bg-white/85 text-[var(--muted)]"
+                                : "soft-control text-[var(--muted)]"
                             }`}
                           >
                             <Heart filled={heartedIds.includes(post.id)} />
@@ -2001,7 +2043,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                                   current === post.id ? null : post.id,
                                 );
                               }}
-                              className="rounded-full px-3 py-2 text-lg leading-none text-[var(--muted)] hover:bg-white/80"
+                              className="rounded-full px-3 py-2 text-lg leading-none text-[var(--muted)] hover:bg-[var(--control-hover)]"
                               aria-label="Open note actions"
                             >
                               ⋯
@@ -2057,7 +2099,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
               {canUsePersonalArchive ? (
                 <div className="mt-5 grid gap-3">
-                  <div className="flex w-fit items-center gap-2 rounded-full bg-white/50 p-1">
+                  <div className="flex w-fit items-center gap-2">
                     {(["all", "public", "hidden"] as const).map((filter) => (
                       <button
                         key={filter}
@@ -2066,7 +2108,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         className={`rounded-full px-3 py-2 text-xs ${
                           myPostsFilter === filter
                             ? "ink-fill"
-                            : "text-[var(--muted)] hover:bg-white"
+                            : "soft-control text-[var(--muted)]"
                         }`}
                       >
                         {filter === "all"
@@ -2081,7 +2123,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     archivedPosts.map((post) => (
                     <article
                       key={post.id}
-                      className="rounded-[22px] border border-[var(--line)] bg-white/72 p-5"
+                      className="paper-panel rounded-[22px] p-5"
                     >
                       <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
@@ -2097,37 +2139,58 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                             {formatRelative(post.createdAt, locale)}
                           </p>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="relative">
                           <button
                             type="button"
-                            onClick={() => startEdit(post)}
-                            className="rounded-full border border-[var(--line)] px-4 py-2 text-sm"
-                          >
-                            {c.common.edit}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDeleteCandidate(post.id);
-                              setVerification("");
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              setActionMenuId((current) =>
+                                current === post.id ? null : post.id,
+                              );
                             }}
-                            className="rounded-full border border-[var(--line)] px-4 py-2 text-sm"
+                            className="rounded-full px-3 py-2 text-lg leading-none text-[var(--muted)] hover:bg-[var(--control-hover)]"
+                            aria-label="Open note actions"
                           >
-                            {c.common.delete}
+                            ⋯
                           </button>
+                          {actionMenuId === post.id ? (
+                            <div
+                              onClick={(event) => event.stopPropagation()}
+                              className="absolute right-0 top-full z-20 mt-2 min-w-28 rounded-2xl border border-[var(--line)] bg-[var(--surface-strong)] p-2 text-sm shadow-[0_16px_44px_rgba(45,36,31,0.14)]"
+                            >
+                              <button
+                                type="button"
+                                onClick={() => startEdit(post)}
+                                className="block w-full rounded-xl px-3 py-2 text-left text-[var(--foreground)] hover:bg-[var(--surface)]"
+                              >
+                                {c.common.edit}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDeleteCandidate(post.id);
+                                  setActionMenuId(null);
+                                  setVerification("");
+                                }}
+                                className="block w-full rounded-xl px-3 py-2 text-left text-[var(--foreground)] hover:bg-[var(--surface)]"
+                              >
+                                {c.common.delete}
+                              </button>
+                            </div>
+                          ) : null}
                         </div>
                       </div>
-                      <p className="reading-text mt-4 whitespace-pre-line text-sm leading-7">{post.body}</p>
+                      <p className="reading-text mt-4 whitespace-pre-line break-words text-sm leading-7">{post.body}</p>
                     </article>
                     ))
                   ) : (
-                    <div className="rounded-[22px] border border-dashed border-[var(--line)] bg-white/58 p-5 text-sm leading-7 text-[var(--muted)]">
+                    <div className="soft-surface rounded-[22px] border border-dashed border-[var(--line)] p-5 text-sm leading-7 text-[var(--muted)]">
                       {c.myPosts.emptyMember}
                     </div>
                   )}
                 </div>
               ) : (
-                <div className="mt-5 rounded-[22px] border border-dashed border-[var(--line)] bg-white/58 p-5">
+                <div className="paper-panel mt-5 rounded-[22px] border-dashed p-5">
                   <p className="text-xl font-semibold tracking-[-0.03em] text-[var(--foreground)]">
                     {c.myPosts.guestTitle}
                   </p>
@@ -2159,7 +2222,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       </div>
 
       {isComposerOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end bg-[rgba(45,36,31,0.34)] p-3 sm:items-center sm:justify-center">
+        <div className="fixed inset-0 z-50 flex items-end bg-[var(--overlay)] p-3 sm:items-center sm:justify-center">
           <div className="w-full max-w-xl rounded-[28px] bg-[var(--surface-strong)] p-5 shadow-[0_30px_80px_rgba(45,36,31,0.18)]">
             <div className="flex items-start justify-between gap-4">
               <p className="eyebrow text-[11px] text-[var(--accent)]">
@@ -2218,7 +2281,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     placeholder={c.home.passwordPlaceholder}
                   />
                 ) : (
-                  <div className="inline-flex w-fit rounded-full bg-white/70 p-1">
+                  <div className="inline-flex w-fit rounded-full soft-control p-1">
                     {(["public", "hidden"] as const).map((visibility) => (
                       <button
                         key={visibility}
@@ -2229,7 +2292,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                         className={`rounded-full px-3 py-2 text-sm ${
                           form.visibility === visibility
                             ? "ink-fill"
-                            : "text-[var(--muted)] hover:bg-white"
+                            : "text-[var(--muted)] hover:bg-[var(--control-hover)]"
                         }`}
                       >
                         {visibility === "public"
@@ -2264,7 +2327,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       ) : null}
 
       {(editingId || deleteCandidate) && (
-        <div className="fixed inset-0 z-50 flex items-end bg-[rgba(45,36,31,0.34)] p-3 sm:items-center sm:justify-center">
+        <div className="fixed inset-0 z-50 flex items-end bg-[var(--overlay)] p-3 sm:items-center sm:justify-center">
           <div className="w-full max-w-xl rounded-[28px] bg-[var(--surface-strong)] p-5 shadow-[0_30px_80px_rgba(45,36,31,0.18)]">
             <p className="eyebrow text-[11px] text-[var(--accent)]">
               {editingId ? c.modal.editEyebrow : c.modal.deleteEyebrow}
@@ -2282,7 +2345,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
               <textarea
                 value={editingDraft}
                 onChange={(event) => setEditingDraft(event.target.value)}
-                className="mt-5 min-h-40 w-full rounded-[22px] border border-[var(--line)] bg-white px-4 py-4 text-sm leading-7 outline-none focus:border-[var(--accent)]"
+                className="mt-5 min-h-40 w-full rounded-[22px] border border-[var(--line)] bg-[var(--surface)] px-4 py-4 text-sm leading-7 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
               />
             ) : null}
 
@@ -2300,7 +2363,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       setVerification(event.target.value);
                       setVerificationError(false);
                     }}
-                    className={`mt-2 w-full rounded-full border bg-white px-4 py-3 outline-none focus:border-[var(--accent)] ${
+                    className={`mt-2 w-full rounded-full border bg-[var(--surface)] px-4 py-3 text-[var(--foreground)] outline-none focus:border-[var(--accent)] ${
                       verificationError
                         ? "shake border-[var(--accent)] shadow-[0_0_0_4px_rgba(184,109,82,0.12)]"
                         : "border-[var(--line)]"
