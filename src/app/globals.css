@@ -136,6 +136,19 @@ textarea {
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
 }
 
+.own-note-card {
+  border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
+  background:
+    linear-gradient(135deg, rgba(184, 109, 82, 0.035), transparent 46%),
+    color-mix(in srgb, var(--surface) 92%, white 8%);
+}
+
+:root[data-theme="evening"] .own-note-card {
+  background:
+    linear-gradient(135deg, rgba(216, 146, 111, 0.075), transparent 46%),
+    color-mix(in srgb, var(--surface) 88%, white 3%);
+}
+
 .feed-refresh-banner {
   color: var(--accent-strong);
   background:
@@ -183,18 +196,29 @@ textarea {
 }
 
 .note-preview {
-  display: -webkit-box;
+  position: relative;
+  display: block;
+  max-height: 12.4rem;
   overflow: hidden;
   overflow-wrap: anywhere;
   word-break: break-word;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
+}
+
+.note-preview-collapsed {
+  mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 80%, transparent 100%);
 }
 
 .note-preview-expanded {
   display: block;
   max-height: none;
+  mask-image: none;
+  -webkit-mask-image: none;
   -webkit-line-clamp: unset;
+}
+
+.note-paragraphs > * + * {
+  margin-top: 0.55rem;
 }
 
 .text-balance {
@@ -202,7 +226,9 @@ textarea {
 }
 
 .card-grid {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  align-items: start;
+  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
 }
 
 .feed-enter {

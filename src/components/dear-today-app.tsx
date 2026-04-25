@@ -22,8 +22,6 @@ const STORAGE_KEYS = {
   theme: "dear-today-theme",
 };
 
-const POST_PREVIEW_LENGTH = 80;
-
 type Locale = "en" | "ko";
 type FeedSort = "latest" | "today";
 type MyPostsFilter = "all" | "public" | "hidden";
@@ -87,7 +85,8 @@ const copy = {
       quickNote: "Quick note",
       openComposer: "Leave a note",
       closeComposer: "Close writing",
-      notePlaceholder: "One thing I am grateful for today...",
+      notePlaceholder: "One small gratitude per line...",
+      noteHint: "Try one small gratitude per line. Three is enough.",
       authorPlaceholder: "Posting nickname",
       passwordPlaceholder: "Guest password for edits",
       addNote: "Add note",
@@ -273,7 +272,8 @@ const copy = {
       quickNote: "감사 남기기",
       openComposer: "글쓰기 열기",
       closeComposer: "글쓰기 닫기",
-      notePlaceholder: "오늘 고마웠던 일을 적어보세요...",
+      notePlaceholder: "오늘 고마웠던 일을 한 줄씩 적어보세요...",
+      noteHint: "한 줄에 하나씩 적어도 좋아요. 세 가지면 충분합니다.",
       authorPlaceholder: "글에 표시될 이름",
       passwordPlaceholder: "수정·삭제용 비밀번호",
       addNote: "남기기",
@@ -506,12 +506,35 @@ function formatCalendarDate(iso: string, locale: Locale) {
   }).format(new Date(iso));
 }
 
-function truncateText(body: string, expanded: boolean) {
-  if (expanded || body.length <= POST_PREVIEW_LENGTH) {
-    return body;
+function splitNoteParagraphs(body: string) {
+  return body
+    .split(/\n+/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+}
+
+function renderNoteParagraphs(body: string) {
+  const paragraphs = splitNoteParagraphs(body);
+
+  return paragraphs.length > 0
+    ? paragraphs.map((paragraph, index) => (
+        <p key={`${paragraph}-${index}`}>{paragraph}</p>
+      ))
+    : null;
+}
+
+function getFeedCardSizeClass(body: string) {
+  const paragraphCount = splitNoteParagraphs(body).length;
+
+  if (body.length > 260 || paragraphCount >= 4) {
+    return "min-h-[250px]";
   }
 
-  return `${body.slice(0, POST_PREVIEW_LENGTH).trimEnd()}...`;
+  if (body.length > 130 || paragraphCount >= 2) {
+    return "min-h-[235px]";
+  }
+
+  return "min-h-[225px]";
 }
 
 function mapApiEntryToPost(entry: ApiEntry): Post {
@@ -645,6 +668,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
+  const [collapsibleIds, setCollapsibleIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
   const [editingVisibility, setEditingVisibility] =
@@ -667,6 +691,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const [pendingPosts, setPendingPosts] = useState<Post[]>([]);
   const [isCheckingFeed, setIsCheckingFeed] = useState(false);
   const postsRef = useRef(posts);
+  const notePreviewRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [, setApiStatus] = useState<
     "idle" | "loading" | "ready" | "fallback"
   >("idle");
@@ -1105,10 +1130,53 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
     );
   }, [canUsePersonalArchive, myPostsFilter, posts, profileOwnedIds, sortReferenceTime]);
 
+  useEffect(() => {
+    if (!isHome) {
+      return;
+    }
+
+    let frame = 0;
+
+    const measureNoteOverflow = () => {
+      frame = window.requestAnimationFrame(() => {
+        const nextIds = visiblePosts
+          .filter((post) => {
+            const preview = notePreviewRefs.current[post.id];
+
+            if (!preview) {
+              return false;
+            }
+
+            return preview.scrollHeight > preview.clientHeight + 2;
+          })
+          .map((post) => post.id);
+
+        setCollapsibleIds((current) => {
+          if (
+            current.length === nextIds.length &&
+            current.every((id, index) => id === nextIds[index])
+          ) {
+            return current;
+          }
+
+          return nextIds;
+        });
+      });
+    };
+
+    measureNoteOverflow();
+    window.addEventListener("resize", measureNoteOverflow);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", measureNoteOverflow);
+    };
+  }, [expandedIds, isHome, visiblePosts]);
+
   const canSubmit =
     form.body.trim().length >= 12 &&
     form.body.length <= MAX_POST_LENGTH &&
-    form.author.trim().length >= 2 &&
+    (profile.mode === "member" || form.author.trim().length >= 2) &&
     (profile.mode === "member" || form.password.trim().length >= 4);
 
   const toggleHeart = async (postId: string) => {
@@ -1195,7 +1263,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
               ? {
                   kind: "profile",
                   profileId: profile.id,
-                  authorName: form.author.trim(),
+                  authorName: profile.name,
                 }
               : {
                   kind: "guest",
@@ -1223,7 +1291,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
     const newPost: Post = {
       id: entryId,
-      author: form.author.trim(),
+      author: profile.mode === "member" ? profile.name : form.author.trim(),
       body: form.body.trim(),
       createdAt: new Date().toISOString(),
       hearts: 0,
@@ -1240,11 +1308,10 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
       setProfileOwnedIds((current) =>
         current.includes(newPost.id) ? current : [newPost.id, ...current],
       );
-      void updateNickname(form.author, { silent: true });
     }
     setForm({
       body: "",
-      author: profile.mode === "member" ? form.author.trim() : profile.name,
+      author: profile.name,
       password: "",
       visibility: "public",
     });
@@ -1832,36 +1899,54 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                     onChange={(event) =>
                       setForm((current) => ({ ...current, body: event.target.value }))
                     }
-                    placeholder="I am grateful for..."
+                    placeholder={c.home.notePlaceholder}
                     className="mt-3 min-h-56 w-full resize-none rounded-[22px] border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-4 text-base leading-7 outline-none placeholder:text-[#9a8b81] focus:border-[var(--accent)]"
                   />
                   <div className="mt-3 flex items-center justify-between text-xs text-[var(--muted)]">
-                    <span>Keep it plain text. Line breaks are welcome.</span>
+                    <span>{c.home.noteHint}</span>
                     <span>{form.body.length}/{MAX_POST_LENGTH}</span>
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <label className="text-sm text-[var(--muted)]">
-                      Author name
-                      <input
-                        value={form.author}
-                        onChange={(event) => {
-                          const nextAuthor = event.target.value;
-                          setForm((current) => ({
-                            ...current,
-                            author: nextAuthor,
-                          }));
-                          if (profile.mode === "member") {
-                            setNicknameDraft(nextAuthor);
-                          }
-                        }}
-                        className="mt-2 w-full rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
-                      />
-                    </label>
+                    {profile.mode === "guest" ? (
+                      <>
+                        <label className="text-sm text-[var(--muted)]">
+                          {c.home.authorPlaceholder}
+                          <input
+                            value={form.author}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                author: event.target.value,
+                              }))
+                            }
+                            className="mt-2 w-full rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+                          />
+                        </label>
 
-                    <label className="text-sm text-[var(--muted)]">
-                      {profile.mode === "member" ? "Visibility" : "Guest password"}
-                      {profile.mode === "member" ? (
+                        <label className="text-sm text-[var(--muted)]">
+                          {c.common.guestPassword}
+                          <input
+                            type="password"
+                            value={form.password}
+                            onChange={(event) =>
+                              setForm((current) => ({
+                                ...current,
+                                password: event.target.value,
+                              }))
+                            }
+                            className="mt-2 w-full rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+                            placeholder="4+ characters for edit/delete"
+                          />
+                        </label>
+                      </>
+                    ) : (
+                      <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 rounded-[22px] border border-[var(--line)] bg-[var(--surface)] px-4 py-3">
+                        <p className="text-sm text-[var(--muted)]">
+                          {locale === "ko"
+                            ? `${profile.name} 이름으로 남겨집니다.`
+                            : `Posting as ${profile.name}.`}
+                        </p>
                         <div className="mt-2 inline-flex w-fit items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--surface)] p-0.5">
                           {(["public", "hidden"] as const).map((visibility) => (
                             <button
@@ -1882,21 +1967,8 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                             </button>
                           ))}
                         </div>
-                      ) : (
-                        <input
-                          type="password"
-                          value={form.password}
-                          onChange={(event) =>
-                            setForm((current) => ({
-                              ...current,
-                              password: event.target.value,
-                            }))
-                          }
-                          className="mt-2 w-full rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
-                          placeholder="4+ characters for edit/delete"
-                        />
-                      )}
-                    </label>
+                      </div>
+                    )}
                   </div>
                   <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
                     {profile.mode === "member"
@@ -1907,7 +1979,9 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                   <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-[var(--muted)]">
                       {profile.mode === "member"
-                        ? `Posting as ${form.author.trim() || profile.name}. You can edit your notes from My Posts.`
+                        ? locale === "ko"
+                          ? "로그인 글은 내 글에서 다시 다듬을 수 있습니다."
+                          : "Signed-in notes can be refined later from My Posts."
                         : "Guest notes stay editable from the public card with your password."}
                     </p>
                     <button
@@ -2006,25 +2080,36 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                 <div className="grid card-grid gap-4">
                   {visiblePosts.map((post) => {
                     const expanded = expandedIds.includes(post.id);
-                    const visibleBody = truncateText(post.body, expanded);
+                    const canExpand = expanded || collapsibleIds.includes(post.id);
+                    const isOwnProfilePost =
+                      profile.mode === "member" && profileOwnedIds.includes(post.id);
 
                     return (
                       <article
                         key={post.id}
-                        className="paper-panel feed-enter flex min-h-[200px] flex-col rounded-[28px] p-5"
+                        className={`paper-panel feed-enter flex flex-col rounded-[28px] p-5 ${
+                          getFeedCardSizeClass(post.body)
+                        } ${isOwnProfilePost ? "own-note-card" : ""}`}
                       >
                         <div className="flex items-center justify-between gap-3 text-sm text-[var(--muted)]">
                           <span>{post.author}</span>
                           <span>{formatRelative(post.createdAt, locale)}</span>
                         </div>
-                        <p
-                          className={`note-preview reading-text mt-4 whitespace-pre-line text-[15px] leading-8 text-[var(--foreground)] ${
-                            expanded ? "note-preview-expanded" : ""
+                        <div
+                          ref={(element) => {
+                            notePreviewRefs.current[post.id] = element;
+                          }}
+                          className={`note-preview reading-text note-paragraphs mt-4 text-[15px] leading-8 text-[var(--foreground)] ${
+                            expanded
+                              ? "note-preview-expanded"
+                              : collapsibleIds.includes(post.id)
+                                ? "note-preview-collapsed"
+                                : ""
                           }`}
                         >
-                          {visibleBody}
-                        </p>
-                        {post.body.length > POST_PREVIEW_LENGTH ? (
+                          {renderNoteParagraphs(post.body)}
+                        </div>
+                        {canExpand ? (
                           <button
                             type="button"
                             onClick={() =>
@@ -2199,7 +2284,9 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                           ) : null}
                         </div>
                       </div>
-                      <p className="reading-text mt-4 whitespace-pre-line break-words text-sm leading-7">{post.body}</p>
+                      <div className="reading-text note-paragraphs mt-4 break-words text-sm leading-7">
+                        {renderNoteParagraphs(post.body)}
+                      </div>
                     </article>
                     ))
                   ) : (
@@ -2269,64 +2356,64 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                 className="reading-text min-h-40 w-full resize-none rounded-[20px] border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm leading-7 outline-none placeholder:text-[#9a8b81] focus:border-[var(--accent)]"
               />
               <div className="mt-3 grid gap-2">
-                <input
-                  aria-label="Author name"
-                  value={form.author}
-                  onChange={(event) => {
-                    const nextAuthor = event.target.value;
-                    setForm((current) => ({
-                      ...current,
-                      author: nextAuthor,
-                    }));
-                    if (profile.mode === "member") {
-                      setNicknameDraft(nextAuthor);
-                    }
-                  }}
-                  className="w-full rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
-                  placeholder={c.home.authorPlaceholder}
-                />
                 {profile.mode === "guest" ? (
-                  <input
-                    aria-label="Guest password"
-                    type="password"
-                    value={form.password}
-                    onChange={(event) =>
-                      setForm((current) => ({
-                        ...current,
-                        password: event.target.value,
-                      }))
-                    }
-                    className="w-full rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
-                    placeholder={c.home.passwordPlaceholder}
-                  />
+                  <>
+                    <input
+                      aria-label="Author name"
+                      value={form.author}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          author: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+                      placeholder={c.home.authorPlaceholder}
+                    />
+                    <input
+                      aria-label="Guest password"
+                      type="password"
+                      value={form.password}
+                      onChange={(event) =>
+                        setForm((current) => ({
+                          ...current,
+                          password: event.target.value,
+                        }))
+                      }
+                      className="w-full rounded-full border border-[var(--line)] bg-[var(--surface-strong)] px-4 py-3 text-sm text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
+                      placeholder={c.home.passwordPlaceholder}
+                    />
+                  </>
                 ) : (
-                  <div className="inline-flex w-fit items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--surface)] p-0.5">
-                    {(["public", "hidden"] as const).map((visibility) => (
-                      <button
-                        key={visibility}
-                        type="button"
-                        onClick={() =>
-                          setForm((current) => ({ ...current, visibility }))
-                        }
-                        className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${
-                          form.visibility === visibility
-                            ? "ink-fill"
-                            : "text-[var(--muted)] hover:bg-[var(--control-hover)]"
-                        }`}
-                      >
-                        {visibility === "public"
-                          ? c.common.publicNote
-                          : c.common.privateNote}
-                      </button>
-                    ))}
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+                    <p className="text-xs text-[var(--muted)]">
+                      {locale === "ko"
+                        ? `${profile.name} 이름으로 남겨집니다.`
+                        : `Posting as ${profile.name}.`}
+                    </p>
+                    <div className="inline-flex w-fit items-center gap-1 rounded-full border border-[var(--line)] bg-[var(--surface-strong)] p-0.5">
+                      {(["public", "hidden"] as const).map((visibility) => (
+                        <button
+                          key={visibility}
+                          type="button"
+                          onClick={() =>
+                            setForm((current) => ({ ...current, visibility }))
+                          }
+                          className={`rounded-full px-2.5 py-1 text-[11px] leading-none ${
+                            form.visibility === visibility
+                              ? "ink-fill"
+                              : "text-[var(--muted)] hover:bg-[var(--control-hover)]"
+                          }`}
+                        >
+                          {visibility === "public"
+                            ? c.common.publicNote
+                            : c.common.privateNote}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
-              <p className="mt-3 text-xs leading-5 text-[var(--muted)]">
-                {profile.mode === "member"
-                  ? c.home.visibilityHelpMember
-                  : c.home.visibilityHelpGuest}
-              </p>
               <div className="mt-3 flex items-center justify-between gap-3">
                 <span className="text-xs text-[var(--muted)]">
                   {form.body.length}/{MAX_POST_LENGTH}
