@@ -837,6 +837,7 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedIds, setExpandedIds] = useState<string[]>([]);
   const [collapsibleIds, setCollapsibleIds] = useState<string[]>([]);
+  const [heartPopIds, setHeartPopIds] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState("");
   const [editingVisibility, setEditingVisibility] =
@@ -1390,6 +1391,15 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
 
   const toggleHeart = async (postId: string) => {
     const alreadyHearted = heartedIds.includes(postId);
+
+    if (!alreadyHearted) {
+      setHeartPopIds((current) =>
+        current.includes(postId) ? current : [...current, postId],
+      );
+      window.setTimeout(() => {
+        setHeartPopIds((current) => current.filter((id) => id !== postId));
+      }, 560);
+    }
 
     setPosts((current) =>
       current.map((post) =>
@@ -2501,11 +2511,11 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                           <button
                             type="button"
                             onClick={() => toggleHeart(post.id)}
-                            className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm ${
+                            className={`heart-action inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm ${
                               heartedIds.includes(post.id)
                                 ? "bg-[rgba(184,109,82,0.14)] text-[var(--accent-strong)]"
                                 : "soft-control text-[var(--muted)]"
-                            }`}
+                            } ${heartPopIds.includes(post.id) ? "heart-action-pop" : ""}`}
                           >
                             <Heart filled={heartedIds.includes(post.id)} />
                             {post.hearts}
@@ -2665,6 +2675,23 @@ export function DearTodayApp({ initialView }: { initialView: View }) {
                       </div>
                       <div className="reading-text note-paragraphs mt-4 break-words text-sm leading-7">
                         {renderNoteParagraphs(post.body)}
+                      </div>
+                      <div className="mt-5 flex items-center justify-between gap-3">
+                        <span
+                          className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm ${
+                            post.hearts > 0
+                              ? "bg-[rgba(184,109,82,0.12)] text-[var(--accent-strong)]"
+                              : "soft-control text-[var(--muted)]"
+                          }`}
+                          aria-label={
+                            locale === "ko"
+                              ? `하트 ${post.hearts}개`
+                              : `${post.hearts} hearts`
+                          }
+                        >
+                          <Heart filled={post.hearts > 0} />
+                          {post.hearts}
+                        </span>
                       </div>
                     </article>
                     ))
@@ -2949,7 +2976,7 @@ function Heart({ filled }: { filled: boolean }) {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="h-4 w-4"
+      className="heart-glyph h-4 w-4"
       fill={filled ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth="1.7"

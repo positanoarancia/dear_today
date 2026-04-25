@@ -141,8 +141,7 @@ select {
 }
 
 .notice-strip {
-  background:
-    linear-gradient(90deg, transparent, color-mix(in srgb, var(--surface) 26%, transparent) 10%, color-mix(in srgb, var(--surface) 26%, transparent) 90%, transparent);
+  background: transparent;
 }
 
 .notice-prompt {
@@ -186,6 +185,30 @@ select {
     color-mix(in srgb, var(--surface) 82%, white 18%);
   border: 1px solid rgba(184, 109, 82, 0.16);
   box-shadow: 0 12px 32px rgba(93, 67, 52, 0.05);
+}
+
+.heart-action {
+  position: relative;
+  overflow: visible;
+}
+
+.heart-action::after {
+  content: "";
+  position: absolute;
+  inset: 0.28rem 0.48rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.84);
+}
+
+.heart-action-pop .heart-glyph {
+  animation: heartGlyphPop 420ms cubic-bezier(0.2, 0.9, 0.25, 1.2);
+}
+
+.heart-action-pop::after {
+  animation: heartSoftRing 520ms ease-out;
 }
 
 .eyebrow {
@@ -274,6 +297,39 @@ select {
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@keyframes heartGlyphPop {
+  0% {
+    transform: scale(1);
+  }
+
+  38% {
+    transform: scale(1.28);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes heartSoftRing {
+  0% {
+    opacity: 0.26;
+    transform: scale(0.84);
+  }
+
+  100% {
+    opacity: 0;
+    transform: scale(1.38);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .heart-action-pop .heart-glyph,
+  .heart-action-pop::after {
+    animation: none;
   }
 }
 
