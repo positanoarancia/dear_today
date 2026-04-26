@@ -163,6 +163,11 @@ const dailyNoticePrompts = {
   ],
 } satisfies Record<Locale, string[]>;
 
+const dailyQuestionPrompts = {
+  en: dailyNoticePrompts.en.filter((prompt) => prompt.trim().endsWith("?")),
+  ko: dailyNoticePrompts.ko.filter((prompt) => prompt.trim().endsWith("?")),
+} satisfies Record<Locale, string[]>;
+
 const copy = {
   en: {
     nav: {
@@ -177,11 +182,6 @@ const copy = {
       signedOut: "Not signed in",
       nicknameHelp: "This name appears on future signed-in notes.",
     },
-    prompts: [
-      "What felt quietly kind today?",
-      "Which small moment made the day softer?",
-      "Who or what held you up, even briefly?",
-    ],
     common: {
       brandEyebrow: "today's gratitude journal",
       defaultGuest: "Quiet guest",
@@ -370,11 +370,6 @@ const copy = {
       signedOut: "로그인하지 않음",
       nicknameHelp: "앞으로 쓰는 로그인 글에 표시될 이름입니다.",
     },
-    prompts: [
-      "오늘 조용히 다정했던 순간은 무엇이었나요?",
-      "오늘을 조금 더 부드럽게 만든 작은 장면은 무엇이었나요?",
-      "짧게라도 나를 붙잡아준 사람이나 일은 무엇이었나요?",
-    ],
     common: {
       brandEyebrow: "오늘의 감사일기",
       defaultGuest: "익명의 마음",
@@ -721,6 +716,17 @@ function getDailyNoticePrompt(locale: Locale, dateKey: string) {
   return prompts[seed % prompts.length];
 }
 
+function getDailyQuestionPrompt(locale: Locale, dateKey: string | null) {
+  const prompts = dailyQuestionPrompts[locale];
+  const seedKey = dateKey ?? getLocalDateKey(new Date());
+  const seed = [...seedKey].reduce(
+    (total, character) => total + character.charCodeAt(0),
+    0,
+  );
+
+  return prompts[seed % prompts.length];
+}
+
 function splitNoteParagraphs(body: string) {
   return body
     .split(/\n+/)
@@ -883,7 +889,6 @@ export function DearTodayApp({
   const [form, setForm] = useState<FormState>({
     ...initialForm,
   });
-  const [selectedPromptIndex] = useState(0);
   const [successMessage, setSuccessMessage] = useState("");
   const [lastCreatedId, setLastCreatedId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -930,7 +935,7 @@ export function DearTodayApp({
     "idle" | "loading" | "ready" | "fallback"
   >("idle");
   const c = copy[locale];
-  const selectedPrompt = c.prompts[selectedPromptIndex];
+  const selectedPrompt = getDailyQuestionPrompt(locale, dailyNoticeDateKey);
   const reactionActor =
     profile.mode === "member"
       ? ({ kind: "profile", profileId: profile.id } as const)
