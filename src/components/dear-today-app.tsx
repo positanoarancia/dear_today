@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { signIn as authSignIn, signOut as authSignOut } from "next-auth/react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   MAX_AUTHOR_LENGTH,
   MAX_POST_LENGTH,
@@ -702,7 +702,6 @@ function formatFeedDateDivider(iso: string, locale: Locale, referenceTime: numbe
   return new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en", {
     month: "long",
     day: "numeric",
-    weekday: "short",
   }).format(date);
 }
 
@@ -912,6 +911,7 @@ export function DearTodayApp({
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isHeaderCompact, setIsHeaderCompact] = useState(false);
+  const [isHeaderTransitionReady, setIsHeaderTransitionReady] = useState(false);
   const [feedSort, setFeedSort] = useState<FeedSort>("latest");
   const [myPostsFilter, setMyPostsFilter] = useState<MyPostsFilter>("all");
   const [sortReferenceTime, setSortReferenceTime] = useState(0);
@@ -962,15 +962,30 @@ export function DearTodayApp({
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
+    let firstFrame = 0;
+    let secondFrame = 0;
+    let transitionTimer = 0;
+
     const updateHeaderMode = () => {
       setIsHeaderCompact(window.scrollY > 24);
     };
 
     updateHeaderMode();
+    firstFrame = window.requestAnimationFrame(() => {
+      updateHeaderMode();
+      secondFrame = window.requestAnimationFrame(updateHeaderMode);
+    });
+    transitionTimer = window.setTimeout(() => {
+      setIsHeaderTransitionReady(true);
+    }, 220);
+
     window.addEventListener("scroll", updateHeaderMode, { passive: true });
 
     return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+      window.clearTimeout(transitionTimer);
       window.removeEventListener("scroll", updateHeaderMode);
     };
   }, []);
@@ -2187,6 +2202,8 @@ export function DearTodayApp({
       <div className="mx-auto flex min-h-screen w-full max-w-[1280px] flex-col px-4 pb-10 pt-0 sm:px-6 lg:px-8">
         <header
           className={`app-header soft-rise sticky top-0 z-30 -mx-4 px-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8 ${
+            isHeaderTransitionReady ? "app-header-ready" : ""
+          } ${
             isHeaderCompact
               ? "app-header-compact pb-2 pt-[calc(env(safe-area-inset-top)+0.45rem)] md:pb-3 md:pt-3"
               : "pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] md:pb-4 md:pt-4"
@@ -2650,20 +2667,21 @@ export function DearTodayApp({
                             getFeedCardSizeClass(post.body)
                           } ${isOwnProfilePost ? "own-note-card" : ""}`}
                         >
-                          {shouldShowDateLabel ? (
-                            <div className="feed-date-label">
-                              {formatFeedDateDivider(
-                                post.createdAt,
-                                locale,
-                                sortReferenceTime,
-                              )}
-                            </div>
-                          ) : null}
                           <div className="flex min-w-0 items-start justify-between gap-3 text-sm text-[var(--muted)]">
                             <span
                               className="min-w-0 flex-1 truncate"
                               title={post.author}
                             >
+                              {shouldShowDateLabel ? (
+                                <span className="feed-date-meta">
+                                  {formatFeedDateDivider(
+                                    post.createdAt,
+                                    locale,
+                                    sortReferenceTime,
+                                  )}
+                                  <span aria-hidden="true"> · </span>
+                                </span>
+                              ) : null}
                               {post.author}
                             </span>
                             <span className="shrink-0 whitespace-nowrap text-right">

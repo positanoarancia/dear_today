@@ -126,6 +126,9 @@ select {
   background:
     linear-gradient(90deg, transparent, color-mix(in srgb, var(--background) 92%, transparent) 8%, color-mix(in srgb, var(--background) 92%, transparent) 92%, transparent),
     color-mix(in srgb, var(--background) 78%, transparent);
+}
+
+.app-header-ready {
   transition:
     padding 200ms ease,
     box-shadow 200ms ease,
@@ -187,19 +190,11 @@ select {
   box-shadow: 0 12px 32px rgba(93, 67, 52, 0.05);
 }
 
-.feed-date-label {
-  margin: -0.1rem 0 0.65rem;
-  width: fit-content;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--surface) 78%, transparent);
-  color: color-mix(in srgb, var(--muted) 82%, var(--foreground) 18%);
+.feed-date-meta {
+  color: color-mix(in srgb, var(--muted) 74%, var(--accent) 26%);
   font-family: var(--font-sans), sans-serif;
-  font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  line-height: 1;
-  padding: 0.36rem 0.56rem;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 .feed-loading-note {
