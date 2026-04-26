@@ -1638,6 +1638,16 @@ export function DearTodayApp({
       (form.author.trim().length >= MIN_AUTHOR_LENGTH &&
         form.author.trim().length <= MAX_AUTHOR_LENGTH)) &&
     (profile.mode === "member" || form.password.trim().length >= 4);
+  const formSafetyMessage = form.body.trim()
+    ? getEntrySafetyMessage(form.body, c.messages)
+    : "";
+  const guestAuthorSafetyMessage =
+    profile.mode === "guest" &&
+    form.author.trim() &&
+    !checkEntryContentSafety(form.author.trim()).ok
+      ? c.messages.unsafeName
+      : "";
+  const composerWarning = formSafetyMessage || guestAuthorSafetyMessage;
 
   const toggleHeart = async (postId: string) => {
     const alreadyHearted = heartedIds.includes(postId);
@@ -1709,29 +1719,22 @@ export function DearTodayApp({
   };
 
   const handleSubmit = async () => {
-    if (!canSubmit || isSubmitting) {
+    if (isSubmitting) {
       return;
     }
 
-    const safetyMessage = getEntrySafetyMessage(form.body, c.messages);
-
-    if (safetyMessage) {
-      setSuccessMessage(safetyMessage);
+    if (composerWarning) {
+      setSuccessMessage(composerWarning);
       setTimeout(() => setSuccessMessage(""), 3200);
+      return;
+    }
+
+    if (!canSubmit) {
       return;
     }
 
     let entryId = createLocalId("post");
     const guestAuthorName = form.author.trim() || c.common.defaultGuest;
-
-    if (
-      profile.mode === "guest" &&
-      !checkEntryContentSafety(guestAuthorName).ok
-    ) {
-      setSuccessMessage(c.messages.unsafeName);
-      setTimeout(() => setSuccessMessage(""), 3200);
-      return;
-    }
 
     setIsSubmitting(true);
     setSuccessMessage("");
@@ -2687,6 +2690,15 @@ export function DearTodayApp({
                     <span>{c.home.noteHint}</span>
                     <span>{form.body.length}/{MAX_POST_LENGTH}</span>
                   </div>
+                  {composerWarning ? (
+                    <p
+                      className="mt-2 rounded-2xl bg-[rgba(184,109,82,0.12)] px-3 py-2 text-xs leading-5 text-[var(--accent-strong)]"
+                      role="alert"
+                      aria-live="polite"
+                    >
+                      {composerWarning}
+                    </p>
+                  ) : null}
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     {profile.mode === "guest" ? (
@@ -3269,6 +3281,15 @@ export function DearTodayApp({
                   {isSubmitting ? c.home.adding : c.home.addNote}
                 </button>
               </div>
+              {composerWarning ? (
+                <p
+                  className="mt-2 rounded-2xl bg-[rgba(184,109,82,0.12)] px-3 py-2 text-xs leading-5 text-[var(--accent-strong)]"
+                  role="alert"
+                  aria-live="polite"
+                >
+                  {composerWarning}
+                </p>
+              ) : null}
             </div>
           </div>
         </div>
