@@ -5,6 +5,7 @@ import {
   MIN_AUTHOR_LENGTH,
 } from "@/server/entries/types";
 import { normalizeAuthorName } from "@/server/entries/validation";
+import { checkEntryContentSafety } from "@/lib/content-safety";
 import { badRequest, ok, serviceUnavailable } from "@/server/http/responses";
 import { updateProfileDisplayName } from "@/server/profile/repository";
 
@@ -48,6 +49,12 @@ export async function PATCH(request: Request) {
     return badRequest([
       `Nickname must be ${MAX_AUTHOR_LENGTH} characters or fewer.`,
     ]);
+  }
+
+  const safety = checkEntryContentSafety(displayName);
+
+  if (!safety.ok) {
+    return badRequest(["Nickname includes words or links that cannot be posted publicly."]);
   }
 
   try {

@@ -12,6 +12,7 @@ import {
   type Profile,
   type View,
 } from "@/lib/dear-today-data";
+import { checkEntryContentSafety } from "@/lib/content-safety";
 
 const STORAGE_KEYS = {
   posts: "dear-today-posts",
@@ -349,6 +350,11 @@ const copy = {
       databaseFailed: "We could not reach the database. Please try again.",
       guestRateLimited:
         "Guest notes are being written too quickly. Please wait a little before writing again.",
+      unsafeLink: "Public notes cannot include links. Please leave only the gratitude note.",
+      unsafeHtml: "HTML tags cannot be included in notes.",
+      unsafeLongLine: "Please split very long lines before posting.",
+      unsafeProhibited: "This note includes words that cannot be posted publicly.",
+      unsafeName: "This name includes words or links that cannot be posted publicly.",
       accessFailed: "We could not start account access yet. Please try again.",
       nicknameLength: "Choose a nickname between 2 and 20 characters.",
       nicknameUpdated: "Your posting nickname has been updated.",
@@ -535,6 +541,11 @@ const copy = {
       databaseFailed: "데이터베이스에 연결하지 못했습니다. 다시 시도해주세요.",
       guestRateLimited:
         "게스트 글이 너무 빠르게 작성되고 있어요. 잠시 후 다시 남겨주세요.",
+      unsafeLink: "링크가 포함된 글은 공개할 수 없어요. 오늘의 감사만 조용히 남겨주세요.",
+      unsafeHtml: "HTML 태그처럼 보이는 문구는 넣을 수 없어요.",
+      unsafeLongLine: "너무 긴 한 줄은 읽기 어렵습니다. 문장을 나누어 남겨주세요.",
+      unsafeProhibited: "공개하기 어려운 단어가 포함되어 있어요. 표현을 조금 다듬어주세요.",
+      unsafeName: "이름에 공개하기 어려운 단어나 링크가 포함되어 있어요.",
       accessFailed: "계정 접근을 시작하지 못했습니다. 다시 시도해주세요.",
       nicknameLength: "별명은 2자 이상 20자 이하로 입력해주세요.",
       nicknameUpdated: "작성 별명이 업데이트되었습니다.",
@@ -752,6 +763,31 @@ function getFeedCardSizeClass(body: string) {
   }
 
   return "min-h-[224px]";
+}
+
+function getEntrySafetyMessage(
+  body: string,
+  messages: (typeof copy)[Locale]["messages"],
+) {
+  const safety = checkEntryContentSafety(body);
+
+  if (safety.ok) {
+    return "";
+  }
+
+  if (safety.reasons.includes("url")) {
+    return messages.unsafeLink;
+  }
+
+  if (safety.reasons.includes("html")) {
+    return messages.unsafeHtml;
+  }
+
+  if (safety.reasons.includes("longLine")) {
+    return messages.unsafeLongLine;
+  }
+
+  return messages.unsafeProhibited;
 }
 
 function mapApiEntryToPost(entry: ApiEntry): Post {
@@ -1646,8 +1682,26 @@ export function DearTodayApp({
       return;
     }
 
+    const safetyMessage = getEntrySafetyMessage(form.body, c.messages);
+
+    if (safetyMessage) {
+      setSuccessMessage(safetyMessage);
+      setTimeout(() => setSuccessMessage(""), 3200);
+      return;
+    }
+
     let entryId = createLocalId("post");
     const guestAuthorName = form.author.trim() || c.common.defaultGuest;
+
+    if (
+      profile.mode === "guest" &&
+      !checkEntryContentSafety(guestAuthorName).ok
+    ) {
+      setSuccessMessage(c.messages.unsafeName);
+      setTimeout(() => setSuccessMessage(""), 3200);
+      return;
+    }
+
     setIsSubmitting(true);
     setSuccessMessage("");
     setLastCreatedId(null);
@@ -1823,7 +1877,18 @@ export function DearTodayApp({
   };
 
   const saveEdit = async () => {
-    if (!editingId || editingDraft.trim().length < 12) {
+    if (
+      !editingId ||
+      editingDraft.trim().length < 12 ||
+      editingDraft.length > MAX_POST_LENGTH
+    ) {
+      return;
+    }
+
+    const safetyMessage = getEntrySafetyMessage(editingDraft, c.messages);
+
+    if (safetyMessage) {
+      showVerificationError(safetyMessage);
       return;
     }
 
@@ -1883,8 +1948,13 @@ export function DearTodayApp({
           }),
         });
 
+        const payload = (await response.json()) as {
+          ok: boolean;
+          errors?: string[];
+        };
+
         if (!response.ok) {
-          showVerificationError(c.messages.verifyFailed);
+          showVerificationError(payload.errors?.[0] ?? c.messages.verifyFailed);
           return;
         }
       } catch {
@@ -2009,6 +2079,13 @@ export function DearTodayApp({
     ) {
       if (!options?.silent) {
         showNicknameFeedback(c.messages.nicknameLength, true);
+      }
+      return false;
+    }
+
+    if (!checkEntryContentSafety(nextName).ok) {
+      if (!options?.silent) {
+        showNicknameFeedback(c.messages.unsafeName, true);
       }
       return false;
     }
@@ -2568,6 +2645,7 @@ export function DearTodayApp({
                   <textarea
                     id="gratitude-body"
                     value={form.body}
+                    maxLength={MAX_POST_LENGTH}
                     onChange={(event) =>
                       setForm((current) => ({ ...current, body: event.target.value }))
                     }
@@ -3077,6 +3155,7 @@ export function DearTodayApp({
             <div className="mt-4">
               <textarea
                 value={form.body}
+                maxLength={MAX_POST_LENGTH}
                 onChange={(event) =>
                   setForm((current) => ({
                     ...current,
@@ -3181,6 +3260,7 @@ export function DearTodayApp({
               <>
                 <textarea
                   value={editingDraft}
+                  maxLength={MAX_POST_LENGTH}
                   onChange={(event) => setEditingDraft(event.target.value)}
                   className="mt-5 min-h-40 w-full rounded-[22px] border border-[var(--line)] bg-[var(--surface)] px-4 py-4 text-sm leading-7 text-[var(--foreground)] outline-none focus:border-[var(--accent)]"
                 />

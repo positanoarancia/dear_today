@@ -12,6 +12,7 @@ import {
   normalizeAuthorName,
   normalizeEntryBody,
   validateCreateEntry,
+  validateEntryBody,
 } from "./validation";
 import type { CreateEntryInput, UpdateEntryInput } from "./types";
 
@@ -180,11 +181,12 @@ export async function createEntry(input: CreateEntryInput) {
 export async function updateEntry(input: UpdateEntryInput) {
   const db = getDb();
   const body = normalizeEntryBody(input.body);
+  const validation = validateEntryBody(body);
 
-  if (body.length < 12 || body.length > 1000) {
+  if (!validation.ok) {
     return {
       ok: false as const,
-      errors: ["Entry length is outside the allowed range."],
+      errors: validation.errors,
     };
   }
 
