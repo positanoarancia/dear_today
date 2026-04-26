@@ -2174,6 +2174,7 @@ export function DearTodayApp({
   const nicknameChangeLocked =
     profile.mode === "member" &&
     profile.nextDisplayNameChangeAt !== null;
+  const isNicknameInputLocked = isSavingNickname || nicknameChangeLocked;
   const canSaveNickname =
     profile.mode === "member" &&
     !isSavingNickname &&
@@ -2346,12 +2347,20 @@ export function DearTodayApp({
                             id="profile-nickname"
                             value={nicknameDraft}
                             maxLength={MAX_AUTHOR_LENGTH}
+                            disabled={isNicknameInputLocked}
                             onChange={(event) => {
+                              if (isNicknameInputLocked) {
+                                return;
+                              }
                               setNicknameDraft(event.target.value);
                               setNicknameFeedback("");
                               setNicknameError(false);
                             }}
-                            className="min-w-0 flex-1 bg-transparent px-0 py-1 text-sm font-medium text-[var(--foreground)] outline-none placeholder:text-[var(--muted)]"
+                            className={`min-w-0 flex-1 bg-transparent px-0 py-1 text-sm font-medium outline-none placeholder:text-[var(--muted)] ${
+                              isNicknameInputLocked
+                                ? "cursor-not-allowed text-[var(--muted)] opacity-70"
+                                : "text-[var(--foreground)]"
+                            }`}
                             placeholder={c.account.nicknamePlaceholder}
                           />
                           <button
