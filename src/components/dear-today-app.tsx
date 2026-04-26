@@ -220,6 +220,8 @@ const copy = {
       noComments: "comments",
       entryLabel: "First step",
       entryBody: "One gratitude note is enough to join the room.",
+      collapseIntro: "Hide intro",
+      showIntro: "Show intro",
       writeCta: "Write",
       readCta: "Read today's notes",
       promptEyebrow: "Today's gentle prompt",
@@ -422,6 +424,8 @@ const copy = {
       noComments: "댓글",
       entryLabel: "첫 걸음",
       entryBody: "감사 한 줄이면 오늘의 방에 들어오기에 충분합니다.",
+      collapseIntro: "접기",
+      showIntro: "안내 보기",
       writeCta: "글쓰기",
       readCta: "최근 글 보기",
       promptEyebrow: "오늘의 질문",
@@ -925,6 +929,7 @@ export function DearTodayApp({
   const [nicknameFeedback, setNicknameFeedback] = useState("");
   const [nicknameError, setNicknameError] = useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
+  const [isHomeHeroOpen, setIsHomeHeroOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isHeaderCompact, setIsHeaderCompact] = useState(false);
   const [isHeaderTransitionReady, setIsHeaderTransitionReady] = useState(false);
@@ -2149,6 +2154,14 @@ export function DearTodayApp({
     setIsComposerOpen(true);
   };
 
+  const closeHomeHero = () => {
+    setIsHomeHeroOpen(false);
+  };
+
+  const showHomeHero = () => {
+    setIsHomeHeroOpen(true);
+  };
+
   const changeTheme = (nextTheme: ThemeMode) => {
     setTheme(nextTheme);
     applyDocumentTheme(nextTheme);
@@ -2472,11 +2485,55 @@ export function DearTodayApp({
 
         <main className="flex flex-1 flex-col gap-4 pt-2 md:pt-3">
           {isHome ? (
-            <section className="home-hero grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+            <section
+              className={
+                isHomeHeroOpen
+                  ? "home-hero grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]"
+                  : "home-hero-mini rounded-2xl border border-[var(--line)] px-4 py-3"
+              }
+            >
+              {!isHomeHeroOpen ? (
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="min-w-0">
+                    <p className="eyebrow text-[10px] text-[var(--sage)]">
+                      {c.home.promptEyebrow}
+                    </p>
+                    <p className="mt-1 truncate text-sm font-medium text-[var(--foreground)] sm:text-base">
+                      {selectedPrompt}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={showHomeHero}
+                      className="rounded-full border border-[var(--line)] px-3 py-2 text-xs text-[var(--muted)] hover:bg-[var(--control-hover)]"
+                    >
+                      {c.home.showIntro}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openComposerFromHeader}
+                      className="rounded-full ink-fill px-4 py-2 text-xs font-medium"
+                    >
+                      {c.home.writeCta}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
               <div className="home-hero-main rounded-2xl border border-[var(--line)] px-5 py-6 sm:px-7 sm:py-7">
-                <p className="eyebrow text-[11px] text-[var(--sage)]">
-                  {c.home.eyebrow}
-                </p>
+                <div className="flex items-start justify-between gap-4">
+                  <p className="eyebrow text-[11px] text-[var(--sage)]">
+                    {c.home.eyebrow}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={closeHomeHero}
+                    className="rounded-full border border-[var(--line)] px-3 py-1.5 text-xs text-[var(--muted)] hover:bg-[var(--control-hover)]"
+                  >
+                    {c.home.collapseIntro}
+                  </button>
+                </div>
                 <h1 className="display mt-3 max-w-3xl text-[2.45rem] text-[var(--foreground)] sm:text-5xl lg:text-[3.7rem]">
                   {c.home.title}
                 </h1>
@@ -2494,6 +2551,7 @@ export function DearTodayApp({
                   </button>
                   <a
                     href="#latest-feed"
+                    onClick={closeHomeHero}
                     className="rounded-full border border-[var(--line)] bg-[var(--surface-soft)] px-5 py-3 text-center text-sm font-medium text-[var(--foreground)] hover:bg-[var(--control-hover)]"
                   >
                     {c.home.readCta}
@@ -2544,6 +2602,8 @@ export function DearTodayApp({
                   </p>
                 </section>
               </aside>
+                </>
+              )}
             </section>
           ) : null}
 

@@ -184,6 +184,20 @@ select {
   box-shadow: 0 22px 54px rgba(0, 0, 0, 0.2);
 }
 
+.home-hero-mini {
+  background:
+    linear-gradient(90deg, rgba(184, 109, 82, 0.055), transparent 52%),
+    color-mix(in srgb, var(--surface-strong) 82%, transparent);
+  box-shadow: 0 12px 34px rgba(93, 67, 52, 0.045);
+}
+
+:root[data-theme="evening"] .home-hero-mini {
+  background:
+    linear-gradient(90deg, rgba(216, 146, 111, 0.095), transparent 56%),
+    color-mix(in srgb, var(--surface-strong) 82%, transparent);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.16);
+}
+
 .home-metrics > div {
   min-height: 5.8rem;
   border-radius: 1rem;
