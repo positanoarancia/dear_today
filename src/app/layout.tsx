@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { cookies } from "next/headers";
+import Script from "next/script";
 import { getSiteUrl } from "./site-url";
 import "./globals.css";
 
@@ -89,7 +90,9 @@ export default async function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script
+        <Script
+          id="dear-today-theme-init"
+          strategy="beforeInteractive"
           dangerouslySetInnerHTML={{
             __html: `(() => {try {const storedTheme = localStorage.getItem("dear-today-theme"); const theme = storedTheme ? JSON.parse(storedTheme) : (matchMedia("(prefers-color-scheme: dark)").matches ? "evening" : "light"); if (theme === "evening" || theme === "light") document.documentElement.dataset.theme = theme;} catch {}})();`,
           }}

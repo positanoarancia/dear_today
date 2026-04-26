@@ -224,13 +224,6 @@ select {
   line-height: 1.45;
 }
 
-.home-featured-copy {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 4;
-}
-
 .own-note-card {
   border-color: color-mix(in srgb, var(--accent) 24%, var(--line));
   background:

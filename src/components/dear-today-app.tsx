@@ -185,7 +185,6 @@ const copy = {
     common: {
       brandEyebrow: "today's gratitude journal",
       defaultGuest: "Quiet guest",
-      noComments: "No comments",
       heartOnly: "Heart-only reactions",
       calmMobile: "Calm mobile reading",
       writeNote: "Write a note",
@@ -212,18 +211,11 @@ const copy = {
       title: "A quiet place to leave one small note of gratitude.",
       subtitle:
         "Write without pressure, read without noise, and leave a soft heart when something meets you gently.",
-      liveTitle: "Today's quiet room is open.",
-      liveBody:
-        "Start with one sentence, then stay a little while with the notes already here.",
       todayNotes: "notes here now",
       todayHearts: "quiet hearts shared",
-      noComments: "comments",
-      entryLabel: "First step",
-      entryBody: "One gratitude note is enough to join the room.",
       collapseIntro: "Hide intro",
-      showIntro: "Show intro",
+      showIntro: "About this space",
       writeCta: "Write",
-      readCta: "Read today's notes",
       promptEyebrow: "Today's gentle prompt",
       promptBody:
         "You can answer it, ignore it, or write something completely your own. The point is to make starting feel lighter.",
@@ -243,10 +235,7 @@ const copy = {
         "Public notes appear in the home feed. Only-me notes stay in My Posts.",
       visibilityHelpGuest:
         "Guest notes are public. Sign in when you want an only-me note.",
-      featuredEyebrow: "Featured gratitude",
-      featuredTitle: "A note carrying today's warmth",
       shareFeeling: "Share this feeling",
-      featuredMeta: "Words, warmth, and quiet appreciation.",
       sortLatest: "Latest",
       sortToday: "Today's hearts",
       newNotes: (count: number) =>
@@ -389,7 +378,6 @@ const copy = {
     common: {
       brandEyebrow: "오늘의 감사일기",
       defaultGuest: "익명의 마음",
-      noComments: "댓글 없음",
       heartOnly: "하트 하나만",
       calmMobile: "차분한 모바일 읽기",
       writeNote: "글 남기기",
@@ -416,18 +404,11 @@ const copy = {
       title: "오늘 고마웠던 일을 짧게 남겨보세요.",
       subtitle:
         "누군가의 감사한 순간을 읽고, 마음이 닿으면 하트를 남겨요. 댓글 없이 조용하게 이어지는 공간입니다.",
-      liveTitle: "오늘의 조용한 방이 열려 있어요.",
-      liveBody:
-        "한 문장으로 시작하고, 이미 남겨진 감사들을 잠시 읽어보세요.",
       todayNotes: "지금 읽을 수 있는 글",
       todayHearts: "전해진 조용한 하트",
-      noComments: "댓글",
-      entryLabel: "첫 걸음",
-      entryBody: "감사 한 줄이면 오늘의 방에 들어오기에 충분합니다.",
       collapseIntro: "접기",
-      showIntro: "안내 보기",
+      showIntro: "공간 소개",
       writeCta: "글쓰기",
-      readCta: "최근 글 보기",
       promptEyebrow: "오늘의 질문",
       promptBody:
         "꼭 질문에 답하지 않아도 괜찮아요. 오늘 마음에 남은 고마운 장면 하나면 충분합니다.",
@@ -447,10 +428,7 @@ const copy = {
         "공개 글은 홈 피드에 보이고, 나만 보기 글은 내 글에만 저장됩니다.",
       visibilityHelpGuest:
         "게스트 글은 공개로만 남길 수 있어요. 나만 보기 글은 로그인 후 사용할 수 있습니다.",
-      featuredEyebrow: "오늘의 글",
-      featuredTitle: "마음에 남은 감사",
       shareFeeling: "공유하기",
-      featuredMeta: "댓글 없이, 하트로만 전해요.",
       sortLatest: "최근",
       sortToday: "오늘 공감",
       newNotes: (count: number) => `새 감사 ${count}개가 도착했어요`,
@@ -2229,10 +2207,6 @@ export function DearTodayApp({
     (total, post) => total + post.hearts,
     0,
   );
-  const topGratitude =
-    visiblePosts.length > 0
-      ? [...visiblePosts].sort((a, b) => b.hearts - a.hearts)[0]
-      : null;
 
   return (
     <div className="min-h-screen pb-8 text-[var(--foreground)]">
@@ -2464,7 +2438,7 @@ export function DearTodayApp({
           </div>
         </header>
 
-        {operatorNoticeText ? (
+        {!isHome && operatorNoticeText ? (
           <div className="notice-strip -mx-4 px-4 py-3 sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
             {configuredNoticeUrl ? (
               <a
@@ -2510,13 +2484,6 @@ export function DearTodayApp({
                     >
                       {c.home.showIntro}
                     </button>
-                    <button
-                      type="button"
-                      onClick={openComposerFromHeader}
-                      className="rounded-full ink-fill px-4 py-2 text-xs font-medium"
-                    >
-                      {c.home.writeCta}
-                    </button>
                   </div>
                 </div>
               ) : (
@@ -2541,24 +2508,7 @@ export function DearTodayApp({
                   {c.home.subtitle}
                 </p>
 
-                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <button
-                    type="button"
-                    onClick={openComposerFromHeader}
-                    className="rounded-full ink-fill px-5 py-3 text-sm font-medium shadow-[0_14px_30px_rgba(45,36,31,0.14)] hover:translate-y-[-1px]"
-                  >
-                    {c.home.writeCta}
-                  </button>
-                  <a
-                    href="#latest-feed"
-                    onClick={closeHomeHero}
-                    className="rounded-full border border-[var(--line)] bg-[var(--surface-soft)] px-5 py-3 text-center text-sm font-medium text-[var(--foreground)] hover:bg-[var(--control-hover)]"
-                  >
-                    {c.home.readCta}
-                  </a>
-                </div>
-
-                <div className="home-metrics mt-7 grid gap-2 sm:grid-cols-3">
+                <div className="home-metrics mt-7 grid gap-2 sm:grid-cols-2">
                   <div>
                     <strong>{visiblePosts.length}</strong>
                     <span>{c.home.todayNotes}</span>
@@ -2567,14 +2517,10 @@ export function DearTodayApp({
                     <strong>{totalHeartCount}</strong>
                     <span>{c.home.todayHearts}</span>
                   </div>
-                  <div>
-                    <strong>0</strong>
-                    <span>{c.home.noComments}</span>
-                  </div>
                 </div>
               </div>
 
-              <aside className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+              <aside className="grid gap-4">
                 <section className="home-side-panel rounded-2xl border border-[var(--line)] p-5">
                   <p className="eyebrow text-[11px] text-[var(--accent)]">
                     {c.home.promptEyebrow}
@@ -2584,21 +2530,6 @@ export function DearTodayApp({
                   </p>
                   <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
                     {c.home.promptBody}
-                  </p>
-                </section>
-
-                <section className="home-side-panel rounded-2xl border border-[var(--line)] p-5">
-                  <p className="eyebrow text-[11px] text-[var(--sage)]">
-                    {topGratitude ? c.home.featuredEyebrow : c.home.entryLabel}
-                  </p>
-                  <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-[var(--foreground)]">
-                    {topGratitude ? c.home.featuredTitle : c.home.liveTitle}
-                  </h2>
-                  <p className="home-featured-copy mt-3 text-sm leading-7 text-[var(--muted)]">
-                    {topGratitude ? topGratitude.body : c.home.liveBody}
-                  </p>
-                  <p className="mt-4 text-xs font-medium text-[var(--accent-strong)]">
-                    {topGratitude ? c.home.featuredMeta : c.home.entryBody}
                   </p>
                 </section>
               </aside>
