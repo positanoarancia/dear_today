@@ -208,7 +208,7 @@ const copy = {
     },
     home: {
       eyebrow: "Public gratitude journal",
-      title: "A quiet room where gratitude gathers.",
+      title: "A quiet place to leave today's heart.",
       subtitle:
         "Read small moments from other people and leave a heart when one reaches you.",
       todayNotes: "notes here now",
@@ -396,7 +396,7 @@ const copy = {
     },
     home: {
       eyebrow: "공개 감사 저널",
-      title: "감사가 조용히 모이는 오늘의 공간.",
+      title: "오늘의 마음을 조용히 남겨요.",
       subtitle:
         "누군가의 작은 순간을 읽고, 마음이 닿으면 하트만 남겨요.",
       todayNotes: "지금 읽을 수 있는 글",
