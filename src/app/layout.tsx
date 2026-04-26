@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     type: "website",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Dear, Today",
     description:
       "조용히 감사 한 줄을 남기고, 다른 사람들의 작은 고마움을 읽는 공개 감사일기.",
