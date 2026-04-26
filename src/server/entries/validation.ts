@@ -51,6 +51,10 @@ function getEntryBodyErrors(bodyInput: string) {
       errors.push("Please split very long lines before posting.");
     }
 
+    if (safety.reasons.includes("lowSignal")) {
+      errors.push("Please write a little more in words before posting.");
+    }
+
     if (safety.reasons.includes("prohibited")) {
       errors.push("This note includes words that cannot be posted publicly.");
     }

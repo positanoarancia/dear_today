@@ -1,6 +1,7 @@
 export type ContentSafetyReason =
   | "html"
   | "longLine"
+  | "lowSignal"
   | "prohibited"
   | "url";
 
@@ -45,6 +46,7 @@ const PROHIBITED_PATTERNS = [
 
 const MAX_LINE_LENGTH = 500;
 const MAX_UNBROKEN_RUN_LENGTH = 120;
+const MIN_TEXTUAL_SIGNAL_LENGTH = 8;
 
 export function normalizeSafeText(text: string) {
   return text
@@ -73,6 +75,17 @@ export function checkEntryContentSafety(text: string): ContentSafetyResult {
     reasons.add("longLine");
   }
 
+  const compactBody = body.replace(/\s+/g, "");
+  const textualSignal = compactBody.match(/[a-z가-힣]/giu)?.join("") ?? "";
+  const digitAndSymbolOnly = compactBody.length > 20 && !/[a-z가-힣]/iu.test(compactBody);
+
+  if (
+    digitAndSymbolOnly ||
+    (compactBody.length > 80 && textualSignal.length < MIN_TEXTUAL_SIGNAL_LENGTH)
+  ) {
+    reasons.add("lowSignal");
+  }
+
   if (PROHIBITED_PATTERNS.some((pattern) => pattern.test(body))) {
     reasons.add("prohibited");
   }
@@ -80,4 +93,14 @@ export function checkEntryContentSafety(text: string): ContentSafetyResult {
   return reasons.size > 0
     ? { ok: false, reasons: Array.from(reasons) }
     : { ok: true };
+}
+
+export function isPublicEntryContentSafe(input: {
+  authorName: string;
+  body: string;
+}) {
+  return (
+    checkEntryContentSafety(input.body).ok &&
+    checkEntryContentSafety(input.authorName).ok
+  );
 }

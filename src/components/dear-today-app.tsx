@@ -12,7 +12,10 @@ import {
   type Profile,
   type View,
 } from "@/lib/dear-today-data";
-import { checkEntryContentSafety } from "@/lib/content-safety";
+import {
+  checkEntryContentSafety,
+  isPublicEntryContentSafe,
+} from "@/lib/content-safety";
 
 const STORAGE_KEYS = {
   posts: "dear-today-posts",
@@ -353,6 +356,7 @@ const copy = {
       unsafeLink: "Public notes cannot include links. Please leave only the gratitude note.",
       unsafeHtml: "HTML tags cannot be included in notes.",
       unsafeLongLine: "Please split very long lines before posting.",
+      unsafeLowSignal: "Please write a little more in words before posting.",
       unsafeProhibited: "This note includes words that cannot be posted publicly.",
       unsafeName: "This name includes words or links that cannot be posted publicly.",
       accessFailed: "We could not start account access yet. Please try again.",
@@ -544,6 +548,7 @@ const copy = {
       unsafeLink: "링크가 포함된 글은 공개할 수 없어요. 오늘의 감사만 조용히 남겨주세요.",
       unsafeHtml: "HTML 태그처럼 보이는 문구는 넣을 수 없어요.",
       unsafeLongLine: "너무 긴 한 줄은 읽기 어렵습니다. 문장을 나누어 남겨주세요.",
+      unsafeLowSignal: "숫자나 기호만 반복된 글은 공개할 수 없어요. 마음을 문장으로 조금만 남겨주세요.",
       unsafeProhibited: "공개하기 어려운 단어가 포함되어 있어요. 표현을 조금 다듬어주세요.",
       unsafeName: "이름에 공개하기 어려운 단어나 링크가 포함되어 있어요.",
       accessFailed: "계정 접근을 시작하지 못했습니다. 다시 시도해주세요.",
@@ -787,6 +792,10 @@ function getEntrySafetyMessage(
     return messages.unsafeLongLine;
   }
 
+  if (safety.reasons.includes("lowSignal")) {
+    return messages.unsafeLowSignal;
+  }
+
   return messages.unsafeProhibited;
 }
 
@@ -799,6 +808,16 @@ function mapApiEntryToPost(entry: ApiEntry): Post {
     hearts: entry.heartCount,
     visibility: entry.visibility,
   };
+}
+
+function isSafePublicPost(post: Post) {
+  return (
+    (post.visibility ?? "public") !== "public" ||
+    isPublicEntryContentSafe({
+      authorName: post.author,
+      body: post.body,
+    })
+  );
 }
 
 function mergePosts(primaryPosts: Post[], secondaryPosts: Post[]) {
@@ -1064,7 +1083,7 @@ export function DearTodayApp({
             }
           : safeProfile;
 
-      setPosts(storedPosts);
+      setPosts(storedPosts.filter(isSafePublicPost));
       setProfile(localizedGuestProfile);
       setHeartedIds(storedHearts);
       setOwnedIds(storedOwned);
@@ -1207,7 +1226,11 @@ export function DearTodayApp({
           setPosts((current) =>
             mergePosts(
               apiPosts,
-              current.filter((post) => (post.visibility ?? "public") === "hidden"),
+              current.filter(
+                (post) =>
+                  (post.visibility ?? "public") === "hidden" ||
+                  isSafePublicPost(post),
+              ),
             ),
           );
           const apiEntryIds = allEntries.map((entry) => entry.id);
@@ -1275,7 +1298,8 @@ export function DearTodayApp({
         const knownIds = new Set(postsRef.current.map((post) => post.id));
         const nextPendingPosts = payload.entries
           .filter((entry) => !knownIds.has(entry.id))
-          .map(mapApiEntryToPost);
+          .map(mapApiEntryToPost)
+          .filter(isSafePublicPost);
 
         setPendingPosts((current) => mergePosts(current, nextPendingPosts));
       } catch {
@@ -1337,7 +1361,9 @@ export function DearTodayApp({
           return;
         }
 
-        const nextPosts = payload.entries.map(mapApiEntryToPost);
+        const nextPosts = payload.entries
+          .map(mapApiEntryToPost)
+          .filter(isSafePublicPost);
         setPosts((current) => mergePosts(current, nextPosts));
         setFeedNextCursor(payload.nextCursor ?? null);
         setHasMoreFeed(Boolean(payload.nextCursor));
@@ -1497,7 +1523,8 @@ export function DearTodayApp({
       posts.filter(
         (post) =>
           !profileOwnedIds.includes(post.id) &&
-          (post.visibility ?? "public") !== "hidden",
+          (post.visibility ?? "public") !== "hidden" &&
+          isSafePublicPost(post),
       ),
     );
   }, [hasHydrated, posts, profileOwnedIds]);
@@ -1529,7 +1556,11 @@ export function DearTodayApp({
   const visiblePosts = useMemo(
     () =>
       sortFeedPosts(
-        posts.filter((post) => (post.visibility ?? "public") === "public"),
+        posts.filter(
+          (post) =>
+            (post.visibility ?? "public") === "public" &&
+            isSafePublicPost(post),
+        ),
         feedSort,
         sortReferenceTime,
       ),

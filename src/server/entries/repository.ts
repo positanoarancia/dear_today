@@ -7,6 +7,7 @@ import {
 } from "../db/drizzle-schema";
 import { hashGuestPassword, verifyGuestPassword } from "../guest-authorship/password";
 import { normalizeLocale } from "../i18n/locale";
+import { isPublicEntryContentSafe } from "@/lib/content-safety";
 import type { EntrySummary } from "./types";
 import {
   normalizeAuthorName,
@@ -15,6 +16,37 @@ import {
   validateEntryBody,
 } from "./validation";
 import type { CreateEntryInput, UpdateEntryInput } from "./types";
+
+type EntryRow = {
+  id: string;
+  body: string;
+  authorName: string;
+  ownerProfileId: string | null;
+  visibility: string;
+  createdAt: Date;
+  heartCount: number;
+  viewerHasHearted: boolean;
+};
+
+function mapSafePublicRows(rows: EntryRow[], profileId?: string): EntrySummary[] {
+  return rows
+    .filter((row) =>
+      isPublicEntryContentSafe({
+        authorName: row.authorName,
+        body: row.body,
+      }),
+    )
+    .map((row) => ({
+      id: row.id,
+      body: row.body,
+      authorName: row.authorName,
+      heartCount: row.heartCount,
+      viewerHasHearted: row.viewerHasHearted,
+      createdAt: row.createdAt.toISOString(),
+      visibility: row.visibility === "hidden" ? "hidden" : "public",
+      canEdit: Boolean(profileId && row.ownerProfileId === profileId),
+    }));
+}
 
 export async function listLatestEntries(options?: {
   actorKey?: string;
@@ -54,16 +86,7 @@ export async function listLatestEntries(options?: {
     .orderBy(desc(gratitudeEntries.createdAt))
     .limit(options?.limit ?? 24);
 
-  return rows.map((row) => ({
-    id: row.id,
-    body: row.body,
-    authorName: row.authorName,
-    heartCount: row.heartCount,
-    viewerHasHearted: row.viewerHasHearted,
-    createdAt: row.createdAt.toISOString(),
-    visibility: row.visibility === "hidden" ? "hidden" : "public",
-    canEdit: Boolean(profileId && row.ownerProfileId === profileId),
-  }));
+  return mapSafePublicRows(rows, profileId);
 }
 
 export async function listEntriesByIds(options: {
@@ -104,16 +127,7 @@ export async function listEntriesByIds(options: {
     .groupBy(gratitudeEntries.id)
     .orderBy(desc(gratitudeEntries.createdAt));
 
-  return rows.map((row) => ({
-    id: row.id,
-    body: row.body,
-    authorName: row.authorName,
-    heartCount: row.heartCount,
-    viewerHasHearted: row.viewerHasHearted,
-    createdAt: row.createdAt.toISOString(),
-    visibility: row.visibility === "hidden" ? "hidden" : "public",
-    canEdit: Boolean(profileId && row.ownerProfileId === profileId),
-  }));
+  return mapSafePublicRows(rows, profileId);
 }
 
 export async function createEntry(input: CreateEntryInput) {
