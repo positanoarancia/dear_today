@@ -212,6 +212,14 @@ const copy = {
       title: "A quiet place to leave one small note of gratitude.",
       subtitle:
         "Write without pressure, read without noise, and leave a soft heart when something meets you gently.",
+      liveTitle: "Today's quiet room is open.",
+      liveBody:
+        "Start with one sentence, then stay a little while with the notes already here.",
+      todayNotes: "notes here now",
+      todayHearts: "quiet hearts shared",
+      noComments: "comments",
+      entryLabel: "First step",
+      entryBody: "One gratitude note is enough to join the room.",
       writeCta: "Write",
       readCta: "Read today's notes",
       promptEyebrow: "Today's gentle prompt",
@@ -406,6 +414,14 @@ const copy = {
       title: "오늘 고마웠던 일을 짧게 남겨보세요.",
       subtitle:
         "누군가의 감사한 순간을 읽고, 마음이 닿으면 하트를 남겨요. 댓글 없이 조용하게 이어지는 공간입니다.",
+      liveTitle: "오늘의 조용한 방이 열려 있어요.",
+      liveBody:
+        "한 문장으로 시작하고, 이미 남겨진 감사들을 잠시 읽어보세요.",
+      todayNotes: "지금 읽을 수 있는 글",
+      todayHearts: "전해진 조용한 하트",
+      noComments: "댓글",
+      entryLabel: "첫 걸음",
+      entryBody: "감사 한 줄이면 오늘의 방에 들어오기에 충분합니다.",
       writeCta: "글쓰기",
       readCta: "최근 글 보기",
       promptEyebrow: "오늘의 질문",
@@ -2196,6 +2212,14 @@ export function DearTodayApp({
   const operatorNoticeText =
     configuredNoticeText ||
     (dailyNoticeDateKey ? getDailyNoticePrompt(locale, dailyNoticeDateKey) : "");
+  const totalHeartCount = visiblePosts.reduce(
+    (total, post) => total + post.hearts,
+    0,
+  );
+  const topGratitude =
+    visiblePosts.length > 0
+      ? [...visiblePosts].sort((a, b) => b.hearts - a.hearts)[0]
+      : null;
 
   return (
     <div className="min-h-screen pb-8 text-[var(--foreground)]">
@@ -2447,6 +2471,82 @@ export function DearTodayApp({
         ) : null}
 
         <main className="flex flex-1 flex-col gap-4 pt-2 md:pt-3">
+          {isHome ? (
+            <section className="home-hero grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+              <div className="home-hero-main rounded-2xl border border-[var(--line)] px-5 py-6 sm:px-7 sm:py-7">
+                <p className="eyebrow text-[11px] text-[var(--sage)]">
+                  {c.home.eyebrow}
+                </p>
+                <h1 className="display mt-3 max-w-3xl text-[2.45rem] text-[var(--foreground)] sm:text-5xl lg:text-[3.7rem]">
+                  {c.home.title}
+                </h1>
+                <p className="mt-4 max-w-2xl text-base leading-8 text-[var(--muted)] sm:text-lg">
+                  {c.home.subtitle}
+                </p>
+
+                <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={openComposerFromHeader}
+                    className="rounded-full ink-fill px-5 py-3 text-sm font-medium shadow-[0_14px_30px_rgba(45,36,31,0.14)] hover:translate-y-[-1px]"
+                  >
+                    {c.home.writeCta}
+                  </button>
+                  <a
+                    href="#latest-feed"
+                    className="rounded-full border border-[var(--line)] bg-[var(--surface-soft)] px-5 py-3 text-center text-sm font-medium text-[var(--foreground)] hover:bg-[var(--control-hover)]"
+                  >
+                    {c.home.readCta}
+                  </a>
+                </div>
+
+                <div className="home-metrics mt-7 grid gap-2 sm:grid-cols-3">
+                  <div>
+                    <strong>{visiblePosts.length}</strong>
+                    <span>{c.home.todayNotes}</span>
+                  </div>
+                  <div>
+                    <strong>{totalHeartCount}</strong>
+                    <span>{c.home.todayHearts}</span>
+                  </div>
+                  <div>
+                    <strong>0</strong>
+                    <span>{c.home.noComments}</span>
+                  </div>
+                </div>
+              </div>
+
+              <aside className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+                <section className="home-side-panel rounded-2xl border border-[var(--line)] p-5">
+                  <p className="eyebrow text-[11px] text-[var(--accent)]">
+                    {c.home.promptEyebrow}
+                  </p>
+                  <p className="display mt-3 text-3xl leading-tight text-[var(--foreground)]">
+                    {selectedPrompt}
+                  </p>
+                  <p className="mt-4 text-sm leading-6 text-[var(--muted)]">
+                    {c.home.promptBody}
+                  </p>
+                </section>
+
+                <section className="home-side-panel rounded-2xl border border-[var(--line)] p-5">
+                  <p className="eyebrow text-[11px] text-[var(--sage)]">
+                    {topGratitude ? c.home.featuredEyebrow : c.home.entryLabel}
+                  </p>
+                  <h2 className="mt-3 text-xl font-semibold tracking-[-0.03em] text-[var(--foreground)]">
+                    {topGratitude ? c.home.featuredTitle : c.home.liveTitle}
+                  </h2>
+                  <p className="home-featured-copy mt-3 text-sm leading-7 text-[var(--muted)]">
+                    {topGratitude ? topGratitude.body : c.home.liveBody}
+                  </p>
+                  <p className="mt-4 text-xs font-medium text-[var(--accent-strong)]">
+                    {topGratitude ? c.home.featuredMeta : c.home.entryBody}
+                  </p>
+                </section>
+              </aside>
+            </section>
+          ) : null}
+
           {isWrite ? (
             <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
               <section className="paper-panel rounded-[32px] px-6 py-6 sm:px-7">

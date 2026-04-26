@@ -105,9 +105,9 @@ select {
 }
 
 .paper-panel {
-  background: color-mix(in srgb, var(--surface) 92%, white 8%);
+  background: color-mix(in srgb, var(--surface) 96%, white 4%);
   border: 1px solid var(--line);
-  box-shadow: 0 18px 40px rgba(93, 67, 52, 0.06);
+  box-shadow: 0 18px 42px rgba(93, 67, 52, 0.08);
 }
 
 .soft-surface {
@@ -164,8 +164,57 @@ select {
 }
 
 :root[data-theme="evening"] .paper-panel {
-  background: color-mix(in srgb, var(--surface) 88%, white 3%);
+  background: color-mix(in srgb, var(--surface) 92%, white 4%);
   box-shadow: 0 18px 42px rgba(0, 0, 0, 0.22);
+}
+
+.home-hero-main,
+.home-side-panel {
+  background:
+    linear-gradient(135deg, rgba(184, 109, 82, 0.075), transparent 46%),
+    color-mix(in srgb, var(--surface-strong) 88%, var(--surface) 12%);
+  box-shadow: 0 22px 54px rgba(93, 67, 52, 0.07);
+}
+
+:root[data-theme="evening"] .home-hero-main,
+:root[data-theme="evening"] .home-side-panel {
+  background:
+    linear-gradient(135deg, rgba(216, 146, 111, 0.11), transparent 48%),
+    color-mix(in srgb, var(--surface-strong) 92%, black 8%);
+  box-shadow: 0 22px 54px rgba(0, 0, 0, 0.2);
+}
+
+.home-metrics > div {
+  min-height: 5.8rem;
+  border-radius: 1rem;
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  padding: 0.95rem 1rem;
+}
+
+.home-metrics strong {
+  display: block;
+  color: var(--foreground);
+  font-family: var(--font-sans), sans-serif;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.home-metrics span {
+  display: block;
+  margin-top: 0.55rem;
+  color: color-mix(in srgb, var(--muted) 82%, var(--foreground) 18%);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
+.home-featured-copy {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
 }
 
 .own-note-card {
@@ -275,6 +324,7 @@ select {
   overflow: hidden;
   overflow-wrap: anywhere;
   word-break: break-word;
+  color: color-mix(in srgb, var(--foreground) 92%, var(--muted) 8%);
 }
 
 .note-preview-collapsed {
@@ -301,7 +351,7 @@ select {
 .card-grid {
   align-items: start;
   gap: 1.25rem;
-  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
 }
 
 .feed-enter {
