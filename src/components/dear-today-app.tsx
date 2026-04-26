@@ -1222,34 +1222,28 @@ export function DearTodayApp({
           ownedEntries.map(mapApiEntryToPost),
         );
 
-        if (apiPosts.length > 0) {
-          setPosts((current) =>
-            mergePosts(
-              apiPosts,
-              current.filter(
-                (post) =>
-                  (post.visibility ?? "public") === "hidden" ||
-                  isSafePublicPost(post),
-              ),
-            ),
-          );
-          const apiEntryIds = allEntries.map((entry) => entry.id);
-          const apiHeartedIds = allEntries
-            .filter((entry) => entry.viewerHasHearted)
-            .map((entry) => entry.id);
-          setHeartedIds((current) =>
-            mergeUniqueStable(
-              current.filter((id) => !apiEntryIds.includes(id)),
-              apiHeartedIds,
-            ),
-          );
-          const editableIds = allEntries
-            .filter((entry) => entry.canEdit)
-            .map((entry) => entry.id);
+        setPosts((current) =>
+          mergePosts(
+            apiPosts,
+            current.filter((post) => (post.visibility ?? "public") === "hidden"),
+          ),
+        );
+        const apiEntryIds = allEntries.map((entry) => entry.id);
+        const apiHeartedIds = allEntries
+          .filter((entry) => entry.viewerHasHearted)
+          .map((entry) => entry.id);
+        setHeartedIds((current) =>
+          mergeUniqueStable(
+            current.filter((id) => !apiEntryIds.includes(id)),
+            apiHeartedIds,
+          ),
+        );
+        const editableIds = allEntries
+          .filter((entry) => entry.canEdit)
+          .map((entry) => entry.id);
 
-          setOwnedIds((current) => mergeUniqueStable(current, editableIds));
-          setProfileOwnedIds((current) => mergeUniqueStable(current, editableIds));
-        }
+        setOwnedIds((current) => mergeUniqueStable(current, editableIds));
+        setProfileOwnedIds((current) => mergeUniqueStable(current, editableIds));
         setApiStatus("ready");
       } catch (error) {
         if (!controller.signal.aborted) {
