@@ -208,9 +208,9 @@ const copy = {
     },
     home: {
       eyebrow: "Public gratitude journal",
-      title: "A quiet place to leave one small note of gratitude.",
+      title: "A quiet room where gratitude gathers.",
       subtitle:
-        "Write without pressure, read without noise, and leave a soft heart when something meets you gently.",
+        "Read small moments from other people and leave a heart when one reaches you.",
       todayNotes: "notes here now",
       todayHearts: "quiet hearts shared",
       collapseIntro: "Hide intro",
@@ -218,7 +218,7 @@ const copy = {
       writeCta: "Write",
       promptEyebrow: "Today's gentle prompt",
       promptBody:
-        "You can answer it, ignore it, or write something completely your own. The point is to make starting feel lighter.",
+        "One remembered scene is enough.",
       promiseLabel: "Emotional promise",
       promise:
         "Not a noisy social feed. Not a private diary. Just a warm public ritual for a softer end to the day.",
@@ -396,9 +396,9 @@ const copy = {
     },
     home: {
       eyebrow: "공개 감사 저널",
-      title: "오늘 고마웠던 일을 짧게 남겨보세요.",
+      title: "감사가 조용히 모이는 오늘의 공간.",
       subtitle:
-        "누군가의 감사한 순간을 읽고, 마음이 닿으면 하트를 남겨요. 댓글 없이 조용하게 이어지는 공간입니다.",
+        "누군가의 작은 순간을 읽고, 마음이 닿으면 하트만 남겨요.",
       todayNotes: "지금 읽을 수 있는 글",
       todayHearts: "전해진 조용한 하트",
       collapseIntro: "접기",
@@ -406,7 +406,7 @@ const copy = {
       writeCta: "글쓰기",
       promptEyebrow: "오늘의 질문",
       promptBody:
-        "꼭 질문에 답하지 않아도 괜찮아요. 오늘 마음에 남은 고마운 장면 하나면 충분합니다.",
+        "떠오르는 장면 하나면 충분합니다.",
       promiseLabel: "이 공간의 약속",
       promise:
         "소란스러운 SNS도, 완전히 혼자 쓰는 일기도 아닙니다. 서로의 감사한 순간을 조용히 읽는 곳입니다.",

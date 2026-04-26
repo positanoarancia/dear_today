@@ -199,26 +199,26 @@ select {
 }
 
 .home-metrics > div {
-  min-height: 5.8rem;
+  min-height: 0;
   border-radius: 1rem;
   border: 1px solid var(--line);
   background: var(--surface-soft);
-  padding: 0.95rem 1rem;
+  padding: 0.85rem 1rem;
 }
 
 .home-metrics strong {
-  display: block;
+  display: inline-block;
   color: var(--foreground);
   font-family: var(--font-sans), sans-serif;
   font-size: 1.45rem;
   font-weight: 700;
   letter-spacing: 0;
   line-height: 1;
+  margin-right: 0.22rem;
 }
 
 .home-metrics span {
-  display: block;
-  margin-top: 0.55rem;
+  display: inline;
   color: color-mix(in srgb, var(--muted) 82%, var(--foreground) 18%);
   font-size: 0.78rem;
   line-height: 1.45;
