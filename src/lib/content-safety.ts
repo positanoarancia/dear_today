@@ -44,6 +44,30 @@ const PROHIBITED_PATTERNS = [
   /(?:fuck|shit|bitch|asshole)/iu,
 ];
 
+const NORMALIZED_PROHIBITED_PATTERNS = [
+  /시발/iu,
+  /씨발/iu,
+  /병신/iu,
+  /개새끼/iu,
+  /꺼져/iu,
+  /죽어/iu,
+  /섹스/iu,
+  /야동/iu,
+  /성인(?:인증|방송|용품)/iu,
+  /카지노/iu,
+  /바카라/iu,
+  /토토/iu,
+  /도박/iu,
+  /대출/iu,
+  /급전/iu,
+  /수익보장/iu,
+  /무료증정/iu,
+  /마약/iu,
+  /필로폰/iu,
+  /(?:viagra|casino|betting|porn|sex|loan|airdrop|crypto)/iu,
+  /(?:fuck|shit|bitch|asshole)/iu,
+];
+
 const MAX_LINE_LENGTH = 500;
 const MAX_UNBROKEN_RUN_LENGTH = 120;
 const MIN_TEXTUAL_SIGNAL_LENGTH = 8;
@@ -54,6 +78,12 @@ export function normalizeSafeText(text: string) {
     .replace(/[\u200B-\u200D\uFEFF]/g, "")
     .replace(/\n{4,}/g, "\n\n\n")
     .trim();
+}
+
+function normalizeTextForProhibitedCheck(text: string) {
+  return normalizeSafeText(text)
+    .normalize("NFKC")
+    .replace(/[^a-z가-힣]/giu, "");
 }
 
 export function checkEntryContentSafety(text: string): ContentSafetyResult {
@@ -86,7 +116,14 @@ export function checkEntryContentSafety(text: string): ContentSafetyResult {
     reasons.add("lowSignal");
   }
 
-  if (PROHIBITED_PATTERNS.some((pattern) => pattern.test(body))) {
+  const prohibitedBody = normalizeTextForProhibitedCheck(body);
+
+  if (
+    PROHIBITED_PATTERNS.some((pattern) => pattern.test(body)) ||
+    NORMALIZED_PROHIBITED_PATTERNS.some((pattern) =>
+      pattern.test(prohibitedBody),
+    )
+  ) {
     reasons.add("prohibited");
   }
 
