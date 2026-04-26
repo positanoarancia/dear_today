@@ -358,7 +358,7 @@ select {
 .card-grid {
   align-items: start;
   gap: 1.25rem;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
 }
 
 .feed-enter {
